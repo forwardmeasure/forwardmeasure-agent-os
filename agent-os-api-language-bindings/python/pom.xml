@@ -22,36 +22,20 @@
 
     <parent>
         <groupId>com.forwardmeasure.agentos</groupId>
-        <artifactId>forwardmeasure-agent-os-parent</artifactId>
+        <artifactId>agent-os-api-language-bindings</artifactId>
         <version>${revision}</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <groupId>com.forwardmeasure.agentos</groupId>
-    <artifactId>agent-os-architecture-tests</artifactId>
-    <packaging>jar</packaging>
+    <artifactId>agent-os-api-language-bindings-python</artifactId>
+    <packaging>pom</packaging>
 
-    <name>Agent OS :: Architecture Tests</name>
-    <description>ArchUnit rules protecting the framework-neutral/framework-bound boundary and the no-duplicated-logic-across-frameworks rule (WP7).</description>
+    <name>Agent OS :: API Language Bindings :: Python</name>
+    <description>Generated Python clients, staged as a jar resource for downstream Python consumers.</description>
 
-    <dependencies>
-        <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>agent-os-domain</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>agent-os-governance-application</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.tngtech.archunit</groupId>
-            <artifactId>archunit-junit5</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
+    <modules>
+        <module>governance-management-service</module>
+        <module>execution-management-service</module>
+    </modules>
 </project>

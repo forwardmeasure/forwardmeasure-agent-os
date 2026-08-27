@@ -22,47 +22,25 @@
 
     <parent>
         <groupId>com.forwardmeasure.agentos</groupId>
-        <artifactId>forwardmeasure-agent-os-parent</artifactId>
+        <artifactId>agent-os-api-language-bindings-typescript</artifactId>
         <version>${revision}</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <groupId>com.forwardmeasure.agentos</groupId>
-    <artifactId>agent-os-schema-validation</artifactId>
+    <artifactId>agent-os-governance-management-client-typescript</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Schema Validation</name>
-    <description>Runtime JSON Schema validation of AgentDefinition domain objects. The schema itself is GENERATED from agent-os-api-specifications' OpenAPI component schema (WP1/WP2), not hand-authored here - this module only consumes it and runs validation in-process, independent of any HTTP framework, per docs/implementation-plan.md §2.6.</description>
-
-    <dependencies>
-        <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>agent-os-domain</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>agent-os-governance-management-models</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.dataformat</groupId>
-            <artifactId>jackson-dataformat-yaml</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.networknt</groupId>
-            <artifactId>json-schema-validator</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
+    <name>Agent OS :: governance-management-service :: Client (TypeScript)</name>
+    <description>Generated fetch-based TypeScript client.</description>
 
     <build>
+        <resources>
+            <resource>
+                <directory>${project.build.directory}/generated-typescript</directory>
+                <targetPath>openapi-ts</targetPath>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -90,22 +68,34 @@
                 </executions>
             </plugin>
             <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <version>3.6.2</version>
+                <groupId>org.openapitools</groupId>
+                <artifactId>openapi-generator-maven-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>generate-agent-definition-schema</id>
-                        <phase>process-classes</phase>
+                        <id>generate-agent-os-governance-management-typescript-client</id>
+                        <phase>generate-sources</phase>
                         <goals>
-                            <goal>java</goal>
+                            <goal>generate</goal>
                         </goals>
                         <configuration>
-                            <mainClass>com.forwardmeasure.agentos.schemavalidation.codegen.AgentDefinitionSchemaGenerator</mainClass>
-                            <arguments>
-                                <argument>${project.build.directory}/unpacked-openapi-spec/META-INF/openapi/agent-governance-management.openapi.yaml</argument>
-                                <argument>${project.build.outputDirectory}/META-INF/schema/agent-definition.schema.json</argument>
-                            </arguments>
+                            <inputSpec>${project.build.directory}/unpacked-openapi-spec/META-INF/openapi/agent-governance-management.openapi.yaml</inputSpec>
+                            <generatorName>typescript-fetch</generatorName>
+                            <output>${project.build.directory}/generated-typescript</output>
+                            <skipValidateSpec>false</skipValidateSpec>
+                            <generateApiTests>false</generateApiTests>
+                            <generateModelTests>false</generateModelTests>
+                            <generateApiDocumentation>false</generateApiDocumentation>
+                            <generateModelDocumentation>false</generateModelDocumentation>
+                            <configOptions>
+                                <hideGenerationTimestamp>true</hideGenerationTimestamp>
+                                <useJakartaEe>true</useJakartaEe>
+                                <useSwaggerAnnotations>false</useSwaggerAnnotations>
+                                <npmName>@forwardmeasure/agent-os-governance-management-client</npmName>
+                                <npmVersion>${project.version}</npmVersion>
+                                <supportsES6>true</supportsES6>
+                                <useSingleRequestParameter>true</useSingleRequestParameter>
+                                <withInterfaces>true</withInterfaces>
+                            </configOptions>
                         </configuration>
                     </execution>
                 </executions>
