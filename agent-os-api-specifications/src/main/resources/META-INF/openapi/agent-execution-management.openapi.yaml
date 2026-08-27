@@ -1,0 +1,739 @@
+openapi: 3.1.0
+info:
+  title: ForwardMeasure Agent OS Execution Management API
+  version: 1.0.0
+  description: |
+    Tenant-scoped durable agent execution start, pause, resume, cancellation,
+    and query, for a published agent release.
+
+    Tenant and actor identity are derived from the authenticated security
+    context. They are never accepted from request bodies, path parameters, or
+    query parameters.
+
+    An agent execution is a durable, tenant-owned provenance binding between
+    one invocation (REST, A2A, or MCP - all three funnel through this same
+    application boundary) and one exact OpenWorkflow execution. This service
+    does not run its own execution engine: starting an agent execution starts
+    and observes a durable OpenWorkflow execution through OpenWorkflow's
+    public execution-management API. The `openWorkflowExecutionId` and
+    `engineId` returned here are exactly the identifiers OpenWorkflow assigned
+    - never chosen or inferred by this service.
+
+    Agent availability is resolved by reading the Governance Management API's
+    data directly at request time - there is no intermediate cache, queue, or
+    replication delay between an agent being published and it being
+    invocable.
+  license:
+    name: Apache License, Version 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.txt
+servers:
+  - url: /
+security:
+  - BearerAuth: []
+tags:
+  - name: Agent Executions
+    description: Durable agent execution control and query
+
+paths:
+  /v1/agent-executions:
+    post:
+      tags: [Agent Executions]
+      operationId: startAgentExecution
+      summary: Start a durable execution of a published agent release
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: './common-definitions.yaml#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentExecutionStart'
+      responses:
+        '202':
+          description: Agent execution durably admitted
+          headers:
+            Location:
+              $ref: './common-definitions.yaml#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentExecution'
+        '400':
+          description: Malformed request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: No published agent release exists at the given coordinates
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The Idempotency-Key was already used for a different request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: The request is syntactically valid but violates resource constraints
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    get:
+      tags: [Agent Executions]
+      operationId: listAgentExecutions
+      summary: List agent executions visible to the authenticated actor
+      description: >
+        Cursor-paginated, not offset-paginated - this listing is
+        time-ordered and actively appended to, and keyset pagination avoids
+        the skipped/duplicate-row problem offset pagination has under
+        concurrent inserts. Contrast with Agent/AgentRelease listings in the
+        Governance Management API, which are offset-paginated reference data.
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/AgentExecutionState'
+          style: form
+          explode: false
+        - name: protocol
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AgentInvocationProtocol'
+        - name: contextId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: createdFrom
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: createdUntil
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          description: Canonical agent execution page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentExecutionPage'
+        '400':
+          description: Malformed request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /v1/agent-executions/{executionId}:
+    parameters:
+      - $ref: '#/components/parameters/ExecutionId'
+    get:
+      tags: [Agent Executions]
+      operationId: getAgentExecution
+      summary: Retrieve the canonical agent execution
+      responses:
+        '200':
+          description: Canonical agent execution
+          headers:
+            ETag:
+              $ref: './common-definitions.yaml#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentExecution'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The resource does not exist or is not visible to the authenticated actor
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /v1/agent-executions/{executionId}/history:
+    parameters:
+      - $ref: '#/components/parameters/ExecutionId'
+      - name: afterSequence
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+          minimum: -1
+          default: -1
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 500
+          default: 100
+    get:
+      tags: [Agent Executions]
+      operationId: getAgentExecutionHistory
+      summary: Retrieve ordered execution history, proxied from OpenWorkflow
+      responses:
+        '200':
+          description: Ordered history page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentExecutionHistoryPage'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The resource does not exist or is not visible to the authenticated actor
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /v1/agent-executions/{executionId}/pause:
+    parameters:
+      - $ref: '#/components/parameters/ExecutionId'
+    post:
+      tags: [Agent Executions]
+      operationId: pauseAgentExecution
+      summary: Durably request pause
+      parameters:
+        - $ref: './common-definitions.yaml#/components/parameters/IfMatch'
+        - $ref: './common-definitions.yaml#/components/parameters/CorrelationId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentExecutionControl'
+      responses:
+        '202':
+          description: Pause command transition is durable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentExecution'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The resource does not exist or is not visible to the authenticated actor
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The request conflicts with resource identity or lifecycle state
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '412':
+          description: The supplied If-Match value does not identify the current revision
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /v1/agent-executions/{executionId}/resume:
+    parameters:
+      - $ref: '#/components/parameters/ExecutionId'
+    post:
+      tags: [Agent Executions]
+      operationId: resumeAgentExecution
+      summary: Durably request resume
+      parameters:
+        - $ref: './common-definitions.yaml#/components/parameters/IfMatch'
+        - $ref: './common-definitions.yaml#/components/parameters/CorrelationId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentExecutionControl'
+      responses:
+        '202':
+          description: Resume command transition is durable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentExecution'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The resource does not exist or is not visible to the authenticated actor
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The request conflicts with resource identity or lifecycle state
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '412':
+          description: The supplied If-Match value does not identify the current revision
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /v1/agent-executions/{executionId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/ExecutionId'
+    post:
+      tags: [Agent Executions]
+      operationId: cancelAgentExecution
+      summary: Durably request cancellation
+      parameters:
+        - $ref: './common-definitions.yaml#/components/parameters/IfMatch'
+        - $ref: './common-definitions.yaml#/components/parameters/CorrelationId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentExecutionControl'
+      responses:
+        '202':
+          description: Cancel command transition is durable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentExecution'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The resource does not exist or is not visible to the authenticated actor
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The request conflicts with resource identity or lifecycle state
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '412':
+          description: The supplied If-Match value does not identify the current revision
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      $ref: './common-definitions.yaml#/components/securitySchemes/BearerAuth'
+  parameters:
+    ExecutionId:
+      name: executionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 160
+  schemas:
+    # --- BEGIN local copies of shared schemas from common-definitions.yaml ---
+    # Duplicated here (not $ref'd cross-file) to work around a real
+    # openapi-generator 7.24.0 jaxrs-spec bug: cross-file schema $refs cause
+    # miscompiled additionalProperties support methods. common-definitions.yaml
+    # remains the canonical source; a structural test must assert these copies
+    # match it exactly.
+    AgentCoordinates:
+      type: object
+      additionalProperties: false
+      description: 'Stable tenant-scoped agent identity. Immutable after draft creation;
+        the (namespace, name, version) tuple never changes for a given agent record. Not
+        marked readOnly - used both to specify which agent a request targets (e.g. starting
+        an execution) and to echo that identity back in responses.
+
+        '
+      required:
+      - namespace
+      - name
+      - version
+      properties:
+        namespace:
+          type: string
+          pattern: ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$
+        name:
+          type: string
+          pattern: ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$
+        version:
+          type: string
+          pattern: ^[0-9]+\.[0-9]+\.[0-9]+$
+    Problem:
+      type: object
+      additionalProperties: false
+      required:
+      - type
+      - title
+      - status
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          default: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+          minimum: 100
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+        correlation_id:
+          type: string
+          nullable: true
+        violations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Violation'
+    Violation:
+      type: object
+      additionalProperties: false
+      required:
+        - field
+        - message
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+        rejected_value:
+          type: string
+          nullable: true
+    WorkflowReleaseBinding:
+      type: object
+      additionalProperties: false
+      description: 'Immutable binding to one exact, published, non-deprecated OpenWorkflow
+        revision. Never a namespace/name/version coordinate, never an engine choice -
+        the workflow and revision identity plus the revision''s own immutable content
+        digest, exactly as OpenWorkflow''s definition-management API returns them. Field
+        naming (camelCase) deliberately matches OpenWorkflow''s own Execution.workflowId/revisionId/revisionDigest
+        - this is the same identity, just factored into a reusable shared schema, not
+        an infrastructure concern like Paging/Problem below.
+
+        '
+      required:
+      - workflowId
+      - revisionId
+      - revisionDigest
+      properties:
+        workflowId:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Stable OpenWorkflow workflow identity
+        revisionId:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Exact published, non-deprecated OpenWorkflow revision
+        revisionDigest:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          readOnly: true
+          description: Immutable content digest OpenWorkflow returns for the revision
+    # --- END local copies ---
+    AgentInvocationProtocol:
+      type: string
+      enum: [rest, a2a, mcp]
+    AgentExecutionState:
+      type: string
+      description: >
+        Wire-level state only. Whether the underlying command has been
+        dispatched to and acknowledged by OpenWorkflow yet is an internal
+        concern (see agent-os-execution-application) - callers only ever
+        observe this single state.
+      enum: [submitted, running, paused, completed, failed, cancelled]
+    AgentExecutionStart:
+      type: object
+      additionalProperties: false
+      required: [agent, input]
+      properties:
+        agent:
+          $ref: '#/components/schemas/AgentCoordinates'
+        input:
+          description: Agent invocation input, validated against the agent's inputSchema
+    AgentExecutionControl:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          maxLength: 1000
+          nullable: true
+    AgentExecution:
+      type: object
+      additionalProperties: false
+      required: [executionId, commandId, agent, workflowBinding, protocol, state, version, correlationId, input, createdAt, updatedAt]
+      properties:
+        executionId:
+          type: string
+          format: uuid
+          readOnly: true
+        commandId:
+          type: string
+          readOnly: true
+          description: Caller-supplied Idempotency-Key this execution was admitted under
+        agent:
+          $ref: '#/components/schemas/AgentCoordinates'
+        workflowBinding:
+          $ref: '#/components/schemas/WorkflowReleaseBinding'
+        openWorkflowExecutionId:
+          type: string
+          format: uuid
+          nullable: true
+          readOnly: true
+          description: Null until OpenWorkflow has acknowledged admission
+        engineId:
+          type: string
+          nullable: true
+          readOnly: true
+          description: OpenWorkflow-assigned engine identity; null until acknowledged
+        protocol:
+          $ref: '#/components/schemas/AgentInvocationProtocol'
+        contextId:
+          type: string
+          nullable: true
+          readOnly: true
+          description: Populated only when protocol is a2a
+        state:
+          $ref: '#/components/schemas/AgentExecutionState'
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+          readOnly: true
+        correlationId:
+          type: string
+          readOnly: true
+        input:
+          readOnly: true
+        output:
+          nullable: true
+          readOnly: true
+        lastFailure:
+          type: string
+          nullable: true
+          readOnly: true
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+        acceptedAt:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+    AgentExecutionPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentExecution'
+        next_cursor:
+          type: string
+          nullable: true
+    AgentExecutionHistoryEntry:
+      type: object
+      additionalProperties: false
+      required: [eventId, sequence, state, occurredAt]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          readOnly: true
+        sequence:
+          type: integer
+          format: int64
+          minimum: 0
+          readOnly: true
+        state:
+          $ref: '#/components/schemas/AgentExecutionState'
+        occurredAt:
+          type: string
+          format: date-time
+          readOnly: true
+        data:
+          readOnly: true
+    AgentExecutionHistoryPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentExecutionHistoryEntry'
+        next_after_sequence:
+          type: integer
+          format: int64
+          nullable: true

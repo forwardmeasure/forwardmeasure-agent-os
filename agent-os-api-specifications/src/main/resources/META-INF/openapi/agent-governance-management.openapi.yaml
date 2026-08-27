@@ -1,0 +1,1350 @@
+openapi: 3.1.0
+info:
+  title: ForwardMeasure Agent OS Governance Management API
+  version: 1.0.0
+  description: |
+    Tenant-scoped, authenticated agent authoring and maker-checker governance.
+
+    Tenant and actor identity are derived from the authenticated security
+    context. They are never accepted from request bodies, path parameters, or
+    query parameters. Agent coordinates (namespace, name, version) are unique
+    within the authenticated tenant and immutable after draft creation.
+
+    Governance follows immutable maker-checker control:
+    `draft -> in_review -> approved -> published`, with `deprecated` and
+    `archived` as further one-way lifecycle transitions from `published`.
+    `return to draft` is the sole recovery path from `in_review` - it covers
+    both "needs changes" and reviewer rejection; there is no separate
+    terminal-rejected status. The author of a revision cannot approve that
+    same revision.
+
+    Publication is synchronous: `publish` validates the approved definition's
+    workflow binding directly against OpenWorkflow's public
+    definition-management API and, on success, transitions the agent to
+    `published` in the same request - there is no queued or pending
+    intermediate state.
+  license:
+    name: Apache License, Version 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.txt
+servers:
+  - url: /
+security:
+  - BearerAuth: []
+tags:
+  - name: Agents
+    description: Tenant-scoped agent draft authoring
+  - name: Agent Governance
+    description: Maker-checker review, approval, publication, deprecation, and archival
+  - name: Agent Releases
+    description: Read-only lookup of currently available (published) agent releases
+
+paths:
+  /v1/agents:
+    post:
+      tags: [Agents]
+      operationId: createAgentDraft
+      summary: Create an agent draft
+      description: >
+        Creates a tenant-scoped agent draft owned by the authenticated actor.
+        The (namespace, name, version) coordinate must be unique within the
+        authenticated tenant.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentDraftCreate'
+      responses:
+        '201':
+          description: Agent draft created
+          headers:
+            ETag:
+              $ref: './common-definitions.yaml#/components/headers/ETag'
+            Location:
+              $ref: './common-definitions.yaml#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '400':
+          description: Malformed request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The request conflicts with resource identity or lifecycle state
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: The request is syntactically valid but violates resource constraints
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    get:
+      tags: [Agents]
+      operationId: listAgents
+      summary: List agents visible to the authenticated actor
+      parameters:
+        - $ref: './common-definitions.yaml#/components/parameters/Offset'
+        - $ref: './common-definitions.yaml#/components/parameters/Limit'
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AgentStatus'
+      responses:
+        '200':
+          description: Authorized agent page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentPage'
+        '400':
+          description: Malformed request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /v1/agents/{agentId}:
+    parameters:
+      - $ref: '#/components/parameters/AgentId'
+    get:
+      tags: [Agents]
+      operationId: getAgent
+      summary: Retrieve the canonical agent record
+      responses:
+        '200':
+          description: Canonical agent record
+          headers:
+            ETag:
+              $ref: './common-definitions.yaml#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The resource does not exist or is not visible to the authenticated actor
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    put:
+      tags: [Agents]
+      operationId: updateAgentDraft
+      summary: Update draft content
+      description: Content is mutable only while the agent is in `draft` status.
+      parameters:
+        - $ref: './common-definitions.yaml#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentDraftUpdate'
+      responses:
+        '200':
+          description: Draft updated
+          headers:
+            ETag:
+              $ref: './common-definitions.yaml#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '400':
+          description: Malformed request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The resource does not exist or is not visible to the authenticated actor
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The request conflicts with resource identity or lifecycle state
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '412':
+          description: The supplied If-Match value does not identify the current revision
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: The request is syntactically valid but violates resource constraints
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    delete:
+      tags: [Agents]
+      operationId: deleteAgentDraft
+      summary: Delete a draft
+      description: Only agents in `draft` status may be deleted.
+      parameters:
+        - $ref: './common-definitions.yaml#/components/parameters/IfMatch'
+      responses:
+        '204':
+          description: Draft deleted
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The resource does not exist or is not visible to the authenticated actor
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The request conflicts with resource identity or lifecycle state
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '412':
+          description: The supplied If-Match value does not identify the current revision
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /v1/agents/{agentId}/submit-for-review:
+    parameters:
+      - $ref: '#/components/parameters/AgentId'
+    post:
+      tags: [Agent Governance]
+      operationId: submitAgentForReview
+      summary: Submit a draft for maker-checker review
+      parameters:
+        - $ref: './common-definitions.yaml#/components/parameters/IfMatch'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentLifecycleAction'
+      responses:
+        '200':
+          description: Agent transitioned to in_review
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The resource does not exist or is not visible to the authenticated actor
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The request conflicts with resource identity or lifecycle state
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '412':
+          description: The supplied If-Match value does not identify the current revision
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /v1/agents/{agentId}/return-to-draft:
+    parameters:
+      - $ref: '#/components/parameters/AgentId'
+    post:
+      tags: [Agent Governance]
+      operationId: returnAgentToDraft
+      summary: Return an in-review agent to draft
+      description: >
+        The sole recovery path from `in_review`. Covers both "needs changes"
+        and reviewer rejection - `reason` should carry the review comment in
+        either case.
+      parameters:
+        - $ref: './common-definitions.yaml#/components/parameters/IfMatch'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentLifecycleAction'
+      responses:
+        '200':
+          description: Agent returned to draft
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The resource does not exist or is not visible to the authenticated actor
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The request conflicts with resource identity or lifecycle state
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '412':
+          description: The supplied If-Match value does not identify the current revision
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /v1/agents/{agentId}/approve:
+    parameters:
+      - $ref: '#/components/parameters/AgentId'
+    post:
+      tags: [Agent Governance]
+      operationId: approveAgent
+      summary: Approve an in-review agent
+      description: >
+        The authenticated actor must differ from the agent's owner (the
+        author of the current revision). Transitions `in_review -> approved`.
+      parameters:
+        - $ref: './common-definitions.yaml#/components/parameters/IfMatch'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentLifecycleAction'
+      responses:
+        '200':
+          description: Agent approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: >
+            The authenticated actor is not authorized, or is the owner of the
+            revision being approved
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The resource does not exist or is not visible to the authenticated actor
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The request conflicts with resource identity or lifecycle state
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '412':
+          description: The supplied If-Match value does not identify the current revision
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /v1/agents/{agentId}/publish:
+    parameters:
+      - $ref: '#/components/parameters/AgentId'
+    post:
+      tags: [Agent Governance]
+      operationId: publishAgent
+      summary: Publish an approved agent
+      description: >
+        Synchronously validates the agent's workflow binding against
+        OpenWorkflow's public definition-management API and transitions
+        `approved -> published` in the same request. No queued or pending
+        intermediate state exists.
+      parameters:
+        - $ref: './common-definitions.yaml#/components/parameters/IfMatch'
+        - $ref: './common-definitions.yaml#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentPublishRequest'
+      responses:
+        '200':
+          description: Agent published
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '400':
+          description: Malformed request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: >
+            The agent does not exist, or the referenced OpenWorkflow revision
+            is not a published, non-deprecated definition
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The request conflicts with resource identity or lifecycle state
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '412':
+          description: The supplied If-Match value does not identify the current revision
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: The request is syntactically valid but violates resource constraints
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /v1/agents/{agentId}/deprecate:
+    parameters:
+      - $ref: '#/components/parameters/AgentId'
+    post:
+      tags: [Agent Governance]
+      operationId: deprecateAgent
+      summary: Deprecate a published agent
+      description: >
+        Marks the release unavailable for new invocations while retaining the
+        governance record. Transitions `published -> deprecated`.
+      parameters:
+        - $ref: './common-definitions.yaml#/components/parameters/IfMatch'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentLifecycleAction'
+      responses:
+        '200':
+          description: Agent deprecated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The resource does not exist or is not visible to the authenticated actor
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The request conflicts with resource identity or lifecycle state
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '412':
+          description: The supplied If-Match value does not identify the current revision
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /v1/agents/{agentId}/archive:
+    parameters:
+      - $ref: '#/components/parameters/AgentId'
+    post:
+      tags: [Agent Governance]
+      operationId: archiveAgent
+      summary: Archive a deprecated agent
+      description: >
+        Terminal lifecycle state. Transitions `deprecated -> archived`.
+      parameters:
+        - $ref: './common-definitions.yaml#/components/parameters/IfMatch'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentLifecycleAction'
+      responses:
+        '200':
+          description: Agent archived
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The resource does not exist or is not visible to the authenticated actor
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The request conflicts with resource identity or lifecycle state
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '412':
+          description: The supplied If-Match value does not identify the current revision
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /v1/agents/{agentId}/audit-events:
+    parameters:
+      - $ref: '#/components/parameters/AgentId'
+    get:
+      tags: [Agent Governance]
+      operationId: listAgentAuditEvents
+      summary: List the immutable governance audit trail for one agent
+      parameters:
+        - $ref: './common-definitions.yaml#/components/parameters/Offset'
+        - $ref: './common-definitions.yaml#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Audit event page, ordered oldest first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentAuditEventPage'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The resource does not exist or is not visible to the authenticated actor
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /v1/agent-releases:
+    get:
+      tags: [Agent Releases]
+      operationId: listAgentReleases
+      summary: List currently available (published) agent releases
+      description: >
+        Read-only, discovery-facing view. Returns only `published` agents;
+        deprecated and archived releases are not included. This is the same
+        governance data execution reads directly (see the Execution
+        Management API) - there is no separate read-model or replication
+        delay.
+      parameters:
+        - $ref: './common-definitions.yaml#/components/parameters/Offset'
+        - $ref: './common-definitions.yaml#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Available agent release page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentReleasePage'
+        '400':
+          description: Malformed request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /v1/agent-releases/{namespace}/{name}/{version}:
+    parameters:
+      - name: namespace
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [Agent Releases]
+      operationId: getAgentRelease
+      summary: Retrieve one available agent release by coordinates
+      responses:
+        '200':
+          description: Available agent release
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentRelease'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: >
+            No agent exists at these coordinates, or it exists but is not
+            currently published
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      $ref: './common-definitions.yaml#/components/securitySchemes/BearerAuth'
+  parameters:
+    AgentId:
+      name: agentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    # --- BEGIN local copies of shared schemas from common-definitions.yaml ---
+    # Duplicated here (not $ref'd cross-file) to work around a real
+    # openapi-generator 7.24.0 jaxrs-spec bug: cross-file schema $refs cause
+    # miscompiled additionalProperties support methods. common-definitions.yaml
+    # remains the canonical source; a structural test must assert these copies
+    # match it exactly.
+    ActorReference:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - subject
+      - type
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        subject:
+          type: string
+          readOnly: true
+          description: Actor subject identifier from the trusted identity provider
+        type:
+          type: string
+          enum:
+          - human
+          - service
+          readOnly: true
+        display_name:
+          type: string
+          nullable: true
+          readOnly: true
+    Paging:
+      type: object
+      additionalProperties: false
+      required:
+      - start
+      - limit
+      - is_last_page
+      properties:
+        start:
+          type: integer
+          format: int32
+          minimum: 0
+        limit:
+          type: integer
+          format: int32
+          minimum: 1
+        is_last_page:
+          type: boolean
+        next_page_start:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+        total_count:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Total number of resources authorized for the caller
+    Problem:
+      type: object
+      additionalProperties: false
+      required:
+      - type
+      - title
+      - status
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          default: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+          minimum: 100
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+        correlation_id:
+          type: string
+          nullable: true
+        violations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Violation'
+    Violation:
+      type: object
+      additionalProperties: false
+      required:
+        - field
+        - message
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+        rejected_value:
+          type: string
+          nullable: true
+    WorkflowReleaseBinding:
+      type: object
+      additionalProperties: false
+      description: 'Immutable binding to one exact, published, non-deprecated OpenWorkflow
+        revision. Never a namespace/name/version coordinate, never an engine choice -
+        the workflow and revision identity plus the revision''s own immutable content
+        digest, exactly as OpenWorkflow''s definition-management API returns them. Field
+        naming (camelCase) deliberately matches OpenWorkflow''s own Execution.workflowId/revisionId/revisionDigest
+        - this is the same identity, just factored into a reusable shared schema, not
+        an infrastructure concern like Paging/Problem below.
+
+        '
+      required:
+      - workflowId
+      - revisionId
+      - revisionDigest
+      properties:
+        workflowId:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Stable OpenWorkflow workflow identity
+        revisionId:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Exact published, non-deprecated OpenWorkflow revision
+        revisionDigest:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          readOnly: true
+          description: Immutable content digest OpenWorkflow returns for the revision
+    # --- END local copies ---
+    AgentStatus:
+      type: string
+      enum: [draft, in_review, approved, published, deprecated, archived]
+    AgentSkill:
+      type: object
+      additionalProperties: false
+      required: [id, name, description]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 160
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        inputModes:
+          type: array
+          items:
+            type: string
+        outputModes:
+          type: array
+          items:
+            type: string
+    AgentProtocols:
+      type: object
+      additionalProperties: false
+      description: At least one of a2a or mcp must be true.
+      required: [a2a, mcp]
+      properties:
+        a2a:
+          type: boolean
+        mcp:
+          type: boolean
+    AgentA2uiComponent:
+      type: string
+      enum: [auto, text_field, text_area, checkbox, choice_picker, date_time, slider, json]
+      default: auto
+    AgentA2uiFieldPresentation:
+      type: object
+      additionalProperties: false
+      description: >
+        Presentation hint for one field. The field it applies to is the key
+        this object is keyed under in AgentA2uiPresentation.fields, not a
+        property on this object itself.
+      properties:
+        label:
+          type: string
+          nullable: true
+        helpText:
+          type: string
+          nullable: true
+        placeholder:
+          type: string
+          nullable: true
+        component:
+          $ref: '#/components/schemas/AgentA2uiComponent'
+    AgentA2uiPresentation:
+      type: object
+      additionalProperties: false
+      description: Form-level A2UI presentation metadata for agent invocation input.
+      properties:
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        submitLabel:
+          type: string
+          nullable: true
+        fieldOrder:
+          type: array
+          description: Field names, in display order. Must not contain duplicates.
+          items:
+            type: string
+        fields:
+          type: object
+          description: Presentation hints keyed by field name.
+          additionalProperties:
+            $ref: '#/components/schemas/AgentA2uiFieldPresentation'
+    AgentDefinitionContent:
+      type: object
+      additionalProperties: false
+      description: >
+        The governed content of an agent definition, independent of its
+        governance-record wrapper (identity, lifecycle status, owner/reviewer,
+        audit timestamps). This is the schema agent-os-schema-validation's
+        JSON Schema is generated from (§2.6) - AgentDraftCreate,
+        AgentDraftUpdate, and Agent all compose it via allOf below rather
+        than each repeating its seven fields, which is exactly the kind of
+        duplication §2.6 exists to prevent.
+      required: [displayName, skills, inputSchema, outputSchema, protocols, publicUri]
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+        skills:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/AgentSkill'
+        inputSchema:
+          description: JSON Schema for agent invocation input
+        outputSchema:
+          description: JSON Schema for agent invocation output
+        protocols:
+          $ref: '#/components/schemas/AgentProtocols'
+        a2uiPresentation:
+          $ref: '#/components/schemas/AgentA2uiPresentation'
+        publicUri:
+          type: string
+          format: uri
+          description: HTTPS-only public discovery/invocation base URI
+    AgentDraftCreate:
+      description: Coordinates plus AgentDefinitionContent.
+      allOf:
+        - type: object
+          additionalProperties: false
+          required: [namespace, name, version]
+          properties:
+            namespace:
+              type: string
+              pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
+            name:
+              type: string
+              pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
+            version:
+              type: string
+              pattern: '^[0-9]+\.[0-9]+\.[0-9]+$'
+        - $ref: '#/components/schemas/AgentDefinitionContent'
+    AgentDraftUpdate:
+      description: >
+        Exactly AgentDefinitionContent - coordinates are immutable after
+        draft creation and are not part of an update.
+      allOf:
+        - $ref: '#/components/schemas/AgentDefinitionContent'
+    AgentLifecycleAction:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          maxLength: 1000
+          nullable: true
+    AgentPublishRequest:
+      type: object
+      additionalProperties: false
+      required: [workflowId, revisionId]
+      properties:
+        workflowId:
+          type: string
+          format: uuid
+          description: OpenWorkflow workflow identity to bind this release to
+        revisionId:
+          type: string
+          format: uuid
+          description: >
+            Exact published, non-deprecated OpenWorkflow revision to bind this
+            release to. The revision digest is resolved from OpenWorkflow, not
+            supplied by the caller.
+    Agent:
+      description: The governance record wrapper (identity, status, provenance) plus AgentDefinitionContent.
+      allOf:
+        - type: object
+          additionalProperties: false
+          required: [id, revision, namespace, name, version, status, owner, createdAt, updatedAt]
+          properties:
+            id:
+              type: string
+              format: uuid
+              readOnly: true
+            revision:
+              type: integer
+              format: int32
+              minimum: 0
+              readOnly: true
+            namespace:
+              type: string
+              readOnly: true
+            name:
+              type: string
+              readOnly: true
+            version:
+              type: string
+              readOnly: true
+            status:
+              $ref: '#/components/schemas/AgentStatus'
+            owner:
+              $ref: '#/components/schemas/ActorReference'
+            reviewer:
+              $ref: '#/components/schemas/ActorReference'
+            workflowBinding:
+              $ref: '#/components/schemas/WorkflowReleaseBinding'
+            agentDefinitionSha256:
+              type: string
+              pattern: '^[0-9a-f]{64}$'
+              nullable: true
+              readOnly: true
+            createdAt:
+              type: string
+              format: date-time
+              readOnly: true
+            updatedAt:
+              type: string
+              format: date-time
+              readOnly: true
+            publishedAt:
+              type: string
+              format: date-time
+              nullable: true
+              readOnly: true
+            deprecatedAt:
+              type: string
+              format: date-time
+              nullable: true
+              readOnly: true
+            archivedAt:
+              type: string
+              format: date-time
+              nullable: true
+              readOnly: true
+        - $ref: '#/components/schemas/AgentDefinitionContent'
+    AgentPage:
+      type: object
+      additionalProperties: false
+      required: [data, paging]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Agent'
+        paging:
+          $ref: '#/components/schemas/Paging'
+    AgentAuditOperation:
+      type: string
+      enum:
+        - created
+        - updated
+        - review_submitted
+        - returned_to_draft
+        - approved
+        - published
+        - deprecated
+        - archived
+        - deleted
+    AgentAuditEvent:
+      type: object
+      additionalProperties: false
+      required: [eventId, agentId, operation, toStatus, actor, correlationId, occurredAt]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          readOnly: true
+        agentId:
+          type: string
+          format: uuid
+          readOnly: true
+        operation:
+          $ref: '#/components/schemas/AgentAuditOperation'
+        fromStatus:
+          $ref: '#/components/schemas/AgentStatus'
+        toStatus:
+          $ref: '#/components/schemas/AgentStatus'
+        actor:
+          $ref: '#/components/schemas/ActorReference'
+        correlationId:
+          type: string
+          readOnly: true
+        definitionSha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          nullable: true
+          readOnly: true
+        details:
+          type: string
+          nullable: true
+          readOnly: true
+        occurredAt:
+          type: string
+          format: date-time
+          readOnly: true
+    AgentAuditEventPage:
+      type: object
+      additionalProperties: false
+      required: [data, paging]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentAuditEvent'
+        paging:
+          $ref: '#/components/schemas/Paging'
+    AgentRelease:
+      type: object
+      additionalProperties: false
+      description: >
+        Discovery-facing trim of Agent - omits reviewer identity and audit
+        metadata that governance-UI consumers need but invocation/discovery
+        consumers do not.
+      required: [namespace, name, version, displayName, skills, protocols, publicUri, workflowBinding, agentDefinitionSha256, updatedAt]
+      properties:
+        namespace:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        version:
+          type: string
+          readOnly: true
+        displayName:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          nullable: true
+          readOnly: true
+        skills:
+          type: array
+          readOnly: true
+          items:
+            $ref: '#/components/schemas/AgentSkill'
+        protocols:
+          $ref: '#/components/schemas/AgentProtocols'
+        publicUri:
+          type: string
+          format: uri
+          readOnly: true
+        workflowBinding:
+          $ref: '#/components/schemas/WorkflowReleaseBinding'
+        agentDefinitionSha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+    AgentReleasePage:
+      type: object
+      additionalProperties: false
+      required: [data, paging]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentRelease'
+        paging:
+          $ref: '#/components/schemas/Paging'
