@@ -32,12 +32,16 @@
     <packaging>jar</packaging>
 
     <name>Agent OS :: Domain</name>
-    <description>Transport- and framework-neutral agent domain: aggregate definition, lifecycle state machine, workflow-revision binding.</description>
+    <description>Transport- and framework-neutral agent domain: aggregate definition, lifecycle state machine, workflow-revision binding. Governed content is typed as the real OpenAPI-generated AgentDefinitionContent (agent-os-governance-management-models, WP1) - not a hand-rolled parallel type, and not an untyped JsonNode escape hatch either.</description>
 
     <dependencies>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>agent-os-governance-management-models</artifactId>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

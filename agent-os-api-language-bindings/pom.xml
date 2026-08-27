@@ -36,5 +36,7 @@
 
     <modules>
         <module>java</module>
+        <module>typescript</module>
+        <module>python</module>
     </modules>
 </project>

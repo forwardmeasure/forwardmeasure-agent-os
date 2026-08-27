@@ -488,35 +488,18 @@ components:
         minLength: 1
         maxLength: 160
   schemas:
-    # --- BEGIN local copies of shared schemas from common-definitions.yaml ---
-    # Duplicated here (not $ref'd cross-file) to work around a real
-    # openapi-generator 7.24.0 jaxrs-spec bug: cross-file schema $refs cause
-    # miscompiled additionalProperties support methods. common-definitions.yaml
-    # remains the canonical source; a structural test must assert these copies
-    # match it exactly.
+    # --- BEGIN shared schemas from common-definitions.yaml ---
+    # Real cross-file $refs for the flat ones (verified by actually compiling
+    # generated output against them). Problem is the sole exception - see the
+    # identical note in agent-governance-management.openapi.yaml for the precise,
+    # verified root cause (a cross-file $ref to a schema that itself has a nested
+    # schema $ref triggers a real openapi-generator 7.24.0 jaxrs-spec bug).
     AgentCoordinates:
-      type: object
-      additionalProperties: false
-      description: 'Stable tenant-scoped agent identity. Immutable after draft creation;
-        the (namespace, name, version) tuple never changes for a given agent record. Not
-        marked readOnly - used both to specify which agent a request targets (e.g. starting
-        an execution) and to echo that identity back in responses.
-
-        '
-      required:
-      - namespace
-      - name
-      - version
-      properties:
-        namespace:
-          type: string
-          pattern: ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$
-        name:
-          type: string
-          pattern: ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$
-        version:
-          type: string
-          pattern: ^[0-9]+\.[0-9]+\.[0-9]+$
+      $ref: './common-definitions.yaml#/components/schemas/AgentCoordinates'
+    Violation:
+      $ref: './common-definitions.yaml#/components/schemas/Violation'
+    WorkflowReleaseBinding:
+      $ref: './common-definitions.yaml#/components/schemas/WorkflowReleaseBinding'
     Problem:
       type: object
       additionalProperties: false
@@ -548,53 +531,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Violation'
-    Violation:
-      type: object
-      additionalProperties: false
-      required:
-        - field
-        - message
-      properties:
-        field:
-          type: string
-        message:
-          type: string
-        rejected_value:
-          type: string
-          nullable: true
-    WorkflowReleaseBinding:
-      type: object
-      additionalProperties: false
-      description: 'Immutable binding to one exact, published, non-deprecated OpenWorkflow
-        revision. Never a namespace/name/version coordinate, never an engine choice -
-        the workflow and revision identity plus the revision''s own immutable content
-        digest, exactly as OpenWorkflow''s definition-management API returns them. Field
-        naming (camelCase) deliberately matches OpenWorkflow''s own Execution.workflowId/revisionId/revisionDigest
-        - this is the same identity, just factored into a reusable shared schema, not
-        an infrastructure concern like Paging/Problem below.
-
-        '
-      required:
-      - workflowId
-      - revisionId
-      - revisionDigest
-      properties:
-        workflowId:
-          type: string
-          format: uuid
-          readOnly: true
-          description: Stable OpenWorkflow workflow identity
-        revisionId:
-          type: string
-          format: uuid
-          readOnly: true
-          description: Exact published, non-deprecated OpenWorkflow revision
-        revisionDigest:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-          readOnly: true
-          description: Immutable content digest OpenWorkflow returns for the revision
-    # --- END local copies ---
+    # --- END shared schemas ---
     AgentInvocationProtocol:
       type: string
       enum: [rest, a2a, mcp]

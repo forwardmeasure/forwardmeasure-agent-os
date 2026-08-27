@@ -849,66 +849,26 @@ components:
         type: string
         format: uuid
   schemas:
-    # --- BEGIN local copies of shared schemas from common-definitions.yaml ---
-    # Duplicated here (not $ref'd cross-file) to work around a real
-    # openapi-generator 7.24.0 jaxrs-spec bug: cross-file schema $refs cause
-    # miscompiled additionalProperties support methods. common-definitions.yaml
-    # remains the canonical source; a structural test must assert these copies
-    # match it exactly.
+    # --- BEGIN shared schemas from common-definitions.yaml ---
+    # Real cross-file $refs for the flat ones (openapi-generator 7.24.0's jaxrs-spec
+    # generator handles these correctly - verified by actually compiling generated
+    # output against them, not assumed). Problem is the sole exception: it has a
+    # nested $ref to Violation as a property type, and a cross-file $ref to a schema
+    # that itself contains a nested schema $ref is what triggers a real generator bug
+    # (miscompiled Map-backed additionalProperties methods on a class that doesn't
+    # implement Map). Problem is duplicated locally to work around exactly that;
+    # Violation itself is flat and works fine as a real cross-file $ref.
+    # common-definitions.yaml remains the canonical source for all of these,
+    # including Problem; a structural test asserts Problem's local copy matches it
+    # exactly.
     ActorReference:
-      type: object
-      additionalProperties: false
-      required:
-      - id
-      - subject
-      - type
-      properties:
-        id:
-          type: string
-          format: uuid
-          readOnly: true
-        subject:
-          type: string
-          readOnly: true
-          description: Actor subject identifier from the trusted identity provider
-        type:
-          type: string
-          enum:
-          - human
-          - service
-          readOnly: true
-        display_name:
-          type: string
-          nullable: true
-          readOnly: true
+      $ref: './common-definitions.yaml#/components/schemas/ActorReference'
     Paging:
-      type: object
-      additionalProperties: false
-      required:
-      - start
-      - limit
-      - is_last_page
-      properties:
-        start:
-          type: integer
-          format: int32
-          minimum: 0
-        limit:
-          type: integer
-          format: int32
-          minimum: 1
-        is_last_page:
-          type: boolean
-        next_page_start:
-          type: integer
-          format: int32
-          minimum: 0
-          nullable: true
-        total_count:
-          type: integer
-          format: int64
-          minimum: 0
-          description: Total number of resources authorized for the caller
+      $ref: './common-definitions.yaml#/components/schemas/Paging'
+    Violation:
+      $ref: './common-definitions.yaml#/components/schemas/Violation'
+    WorkflowReleaseBinding:
+      $ref: './common-definitions.yaml#/components/schemas/WorkflowReleaseBinding'
     Problem:
       type: object
       additionalProperties: false
@@ -940,53 +900,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Violation'
-    Violation:
-      type: object
-      additionalProperties: false
-      required:
-        - field
-        - message
-      properties:
-        field:
-          type: string
-        message:
-          type: string
-        rejected_value:
-          type: string
-          nullable: true
-    WorkflowReleaseBinding:
-      type: object
-      additionalProperties: false
-      description: 'Immutable binding to one exact, published, non-deprecated OpenWorkflow
-        revision. Never a namespace/name/version coordinate, never an engine choice -
-        the workflow and revision identity plus the revision''s own immutable content
-        digest, exactly as OpenWorkflow''s definition-management API returns them. Field
-        naming (camelCase) deliberately matches OpenWorkflow''s own Execution.workflowId/revisionId/revisionDigest
-        - this is the same identity, just factored into a reusable shared schema, not
-        an infrastructure concern like Paging/Problem below.
-
-        '
-      required:
-      - workflowId
-      - revisionId
-      - revisionDigest
-      properties:
-        workflowId:
-          type: string
-          format: uuid
-          readOnly: true
-          description: Stable OpenWorkflow workflow identity
-        revisionId:
-          type: string
-          format: uuid
-          readOnly: true
-          description: Exact published, non-deprecated OpenWorkflow revision
-        revisionDigest:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-          readOnly: true
-          description: Immutable content digest OpenWorkflow returns for the revision
-    # --- END local copies ---
+    # --- END shared schemas ---
     AgentStatus:
       type: string
       enum: [draft, in_review, approved, published, deprecated, archived]
