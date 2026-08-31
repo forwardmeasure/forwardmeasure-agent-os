@@ -1,0 +1,198 @@
+openapi: 3.1.0
+info:
+  title: ForwardMeasure Agent OS Policy Management API
+  version: 1.0.0
+  description: |
+    Stateless policy-decision call-out, used by the governance and execution
+    verticals - and by OpenWorkflow DSL `call http` steps inside a running
+    agent execution's own reasoning loop - to ask whether a proposed action
+    is permitted, rejected, or requires human approval.
+
+    This service does not implement policy logic itself. It delegates every
+    evaluation to a real policy engine and translates between agent-os's own
+    stable wire contract and that engine's own input/result shape. Callers
+    depend on this contract, never on the policy engine directly - the engine
+    is a swappable implementation detail behind it, selected via
+    `agent-os.policy.evaluator` (`opa`, the default, addressed as
+    `agent-os.policy.opa-base-url`; or `drools`, a forwardmeasure-decision-engine
+    server addressed as `agent-os.policy.drools-target`).
+
+    Tenant and actor identity are derived from the authenticated security
+    context. They are never accepted from request bodies, path parameters, or
+    query parameters - consistent with the Execution and Governance
+    Management APIs.
+
+    A `policyPath` that does not correspond to any loaded policy is a 404, not
+    a silent permit - every real policy is expected to declare a fail-closed
+    default (`REJECTED` or `REQUIRES_APPROVAL`, never `PERMITTED`) for inputs
+    it does not explicitly recognize, and an unknown path is treated the same
+    way: never interpreted as an implicit permit.
+  license:
+    name: Apache License, Version 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.txt
+servers:
+  - url: /
+security:
+  - BearerAuth: []
+tags:
+  - name: Policy Evaluations
+    description: Synchronous policy decisions for proposed actions
+
+paths:
+  /v1/policy-evaluations:
+    post:
+      tags: [Policy Evaluations]
+      operationId: evaluatePolicy
+      summary: Synchronously evaluate a proposed action against a named policy
+      description: >
+        Not idempotent-key admitted and not durably recorded here - a pure
+        decision call. The caller (execution's workflow dispatch, or a
+        workflow's own `call http` step) is responsible for acting on the
+        outcome and for any audit record of the decision it makes as a
+        result.
+      parameters:
+        - $ref: './common-definitions.yaml#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyEvaluationRequest'
+      responses:
+        '200':
+          description: Policy decision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyEvaluationResult'
+        '400':
+          description: Malformed request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Authentication is absent or invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: The authenticated actor is not authorized for the requested resource action
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: No policy is loaded at the given policyPath
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '503':
+          description: The policy engine is unreachable or failed to respond; treat as a failed evaluation, never as an implicit permit
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: An unexpected error occurred while processing the request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      $ref: './common-definitions.yaml#/components/securitySchemes/BearerAuth'
+  schemas:
+    # --- BEGIN shared schemas from common-definitions.yaml ---
+    # Real cross-file $refs for the flat ones (verified by actually compiling generated output
+    # against them). Problem is the sole exception - see the identical note in
+    # agent-execution-management.openapi.yaml for the precise, verified root cause (a cross-file
+    # $ref to a schema that itself has a nested schema $ref triggers a real openapi-generator
+    # 7.24.0 jaxrs-spec bug).
+    AgentCoordinates:
+      $ref: './common-definitions.yaml#/components/schemas/AgentCoordinates'
+    Violation:
+      $ref: './common-definitions.yaml#/components/schemas/Violation'
+    Problem:
+      type: object
+      additionalProperties: false
+      required:
+      - type
+      - title
+      - status
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          default: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+          minimum: 100
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+        correlation_id:
+          type: string
+          nullable: true
+        violations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Violation'
+    # --- END shared schemas ---
+    PolicyOutcome:
+      type: string
+      description: >
+        REQUIRES_APPROVAL is distinct from REJECTED - a rejected action must
+        not proceed at all, while an action requiring approval is durably
+        paused (see AgentExecutionState.paused) pending a human decision, then
+        resubmitted.
+      enum: [permitted, rejected, requires_approval]
+    PolicyEvaluationRequest:
+      type: object
+      additionalProperties: false
+      required: [policyPath, input]
+      properties:
+        policyPath:
+          type: string
+          description: >
+            Namespaced identifier of the policy to evaluate, e.g.
+            agentos/execution/actionGate. The same request shape serves every
+            policy question this way - a new policy is new Rego, never new
+            Java or a new operation on this API.
+          pattern: '^[a-z][a-zA-Z0-9]*(/[a-z][a-zA-Z0-9]*)*$'
+        agent:
+          allOf:
+            - $ref: '#/components/schemas/AgentCoordinates'
+          nullable: true
+          description: The agent this evaluation concerns, when applicable
+        input:
+          description: >
+            Arbitrary policy-specific evaluation context (proposed action,
+            accumulated evidence, budget consumed so far, materiality, ...),
+            passed through opaquely to the policy engine as its own `input`
+            document
+    PolicyEvaluationResult:
+      type: object
+      additionalProperties: false
+      required: [outcome]
+      properties:
+        outcome:
+          $ref: '#/components/schemas/PolicyOutcome'
+        reason:
+          type: string
+          nullable: true
+        obligations:
+          type: array
+          items:
+            type: string
+          default: []

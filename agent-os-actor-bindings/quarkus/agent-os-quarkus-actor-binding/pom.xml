@@ -43,6 +43,13 @@
             <type>pom</type>
             <scope>import</scope>
         </dependency>
+        <dependency>
+            <groupId>com.forwardmeasure.openworkflow</groupId>
+            <artifactId>openworkflow-bom</artifactId>
+            <version>${forwardmeasure.openworkflow.version}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -54,6 +61,61 @@
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-arc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.forwardmeasure.openworkflow</groupId>
+            <artifactId>openworkflow-authorization-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.forwardmeasure.jpa</groupId>
+            <artifactId>forwardmeasure-jpa-identity</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.forwardmeasure.jpa</groupId>
+            <artifactId>forwardmeasure-jpa-tenancy</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.forwardmeasure.jpa</groupId>
+            <artifactId>forwardmeasure-jpa-quarkus</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-oidc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.forwardmeasure.jpa</groupId>
+            <artifactId>forwardmeasure-jpa-liquibase</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.forwardmeasure.testcontainers</groupId>
+            <artifactId>forwardmeasure-testcontainers-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.bytebuddy</groupId>
+            <artifactId>byte-buddy</artifactId>
+            <version>1.18.11</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>
