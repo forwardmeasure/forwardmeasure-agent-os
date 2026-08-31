@@ -74,6 +74,9 @@
         <a2a-java-sdk.version>1.1.0.Final</a2a-java-sdk.version>
         <mcp-java-sdk.version>2.0.0</mcp-java-sdk.version>
         <forwardmeasure.openworkflow.version>1.0.0-SNAPSHOT</forwardmeasure.openworkflow.version>
+        <!-- forwardmeasure-decision-engine's own root revision - agent-os-policy-drools depends on
+             its published decision-engine-api-language-bindings-java-grpc artifact only. -->
+        <forwardmeasure.decisionengine.version>1.0.0-SNAPSHOT</forwardmeasure.decisionengine.version>
         <micrometer.version>1.17.0</micrometer.version>
 
         <apache.rat.version>0.17</apache.rat.version>
@@ -92,6 +95,9 @@
         <module>agent-os-actor-bindings</module>
         <module>agent-os-governance</module>
         <module>agent-os-execution</module>
+        <module>agent-os-policy-opa</module>
+        <module>agent-os-policy-drools</module>
+        <module>agent-os-policy</module>
         <module>agent-os-database-migrations</module>
         <module>agent-os-database-migration-service</module>
         <module>agent-os-studio</module>
@@ -209,6 +215,21 @@
         </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
+            <artifactId>agent-os-policy-management-models</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>agent-os-policy-management-client-apachehttp</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>agent-os-policy-management-server-jaxrs</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
             <artifactId>agent-os-governance-management-client-typescript</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -219,12 +240,22 @@
         </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
+            <artifactId>agent-os-policy-management-client-typescript</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
             <artifactId>agent-os-governance-management-client-python</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>agent-os-execution-management-client-python</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>agent-os-policy-management-client-python</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -310,6 +341,36 @@
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>agent-os-execution-micronaut</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>agent-os-policy-opa</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>agent-os-policy-drools</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>agent-os-policy-jaxrs</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>agent-os-policy-quarkus</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>agent-os-policy-spring</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>agent-os-policy-micronaut</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

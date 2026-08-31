@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements. See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License. You may obtain a copy of the License at
+
+      https://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    logicalFilePath="db/changelog/agent-os-governance-jpa.xml"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="agent-os-governance-jpa-001" author="forwardmeasure">
+        <comment>Create the agent governance table.</comment>
+
+        <createSequence
+            sequenceName="agent_id_seq"
+            startValue="1"
+            incrementBy="1"
+            cacheSize="1" />
+
+        <createTable tableName="agent">
+            <column
+                name="id"
+                type="BIGINT"
+                defaultValueSequenceNext="agent_id_seq">
+                <constraints
+                    primaryKey="true"
+                    primaryKeyName="pk_agent"
+                    nullable="false" />
+            </column>
+            <column name="version" type="INTEGER" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="uuid" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints
+                    nullable="false"
+                    unique="true"
+                    uniqueConstraintName="uk_agent_uuid" />
+            </column>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false" />
+            </column>
+            <column name="owner_id" type="BIGINT">
+                <constraints nullable="false" />
+            </column>
+            <column name="namespace" type="VARCHAR(63)">
+                <constraints nullable="false" />
+            </column>
+            <column name="name" type="VARCHAR(63)">
+                <constraints nullable="false" />
+            </column>
+            <column name="agent_version" type="VARCHAR(32)">
+                <constraints nullable="false" />
+            </column>
+            <column name="status" type="VARCHAR(20)">
+                <constraints nullable="false" />
+            </column>
+            <column name="content" type="JSONB">
+                <constraints nullable="false" />
+            </column>
+            <column name="reviewer_id" type="BIGINT" />
+            <column name="workflow_id" type="UUID" />
+            <column name="workflow_revision_id" type="UUID" />
+            <column name="workflow_revision_digest" type="VARCHAR(64)" />
+            <column name="agent_definition_sha256" type="VARCHAR(64)" />
+            <column name="published_at" type="TIMESTAMP WITH TIME ZONE" />
+            <column name="deprecated_at" type="TIMESTAMP WITH TIME ZONE" />
+            <column name="archived_at" type="TIMESTAMP WITH TIME ZONE" />
+        </createTable>
+
+        <sql dbms="postgresql">
+            ALTER SEQUENCE agent_id_seq OWNED BY agent.id;
+        </sql>
+
+        <addUniqueConstraint
+            tableName="agent"
+            columnNames="namespace, name, agent_version"
+            constraintName="uk_agent_namespace_name_agent_version" />
+
+        <addForeignKeyConstraint
+            baseTableName="agent"
+            baseColumnNames="owner_id"
+            referencedTableName="actor"
+            referencedColumnNames="id"
+            constraintName="fk_agent_owner"
+            onDelete="RESTRICT" />
+
+        <addForeignKeyConstraint
+            baseTableName="agent"
+            baseColumnNames="reviewer_id"
+            referencedTableName="actor"
+            referencedColumnNames="id"
+            constraintName="fk_agent_reviewer"
+            onDelete="RESTRICT" />
+
+        <createIndex tableName="agent" indexName="idx_agent_available_release">
+            <column name="namespace" />
+            <column name="name" />
+            <column name="agent_version" />
+            <column name="status" />
+        </createIndex>
+
+        <sql dbms="postgresql">
+            ALTER TABLE agent
+            ADD CONSTRAINT chk_agent_status
+            CHECK (status IN (
+                'DRAFT', 'IN_REVIEW', 'APPROVED',
+                'PUBLISHED', 'DEPRECATED', 'ARCHIVED'));
+
+            ALTER TABLE agent
+            ADD CONSTRAINT chk_agent_workflow_binding_complete
+            CHECK (
+                (workflow_id IS NULL AND workflow_revision_id IS NULL AND workflow_revision_digest IS NULL)
+                OR (workflow_id IS NOT NULL AND workflow_revision_id IS NOT NULL AND workflow_revision_digest IS NOT NULL));
+        </sql>
+
+        <rollback>
+            <dropTable tableName="agent" />
+            <dropSequence sequenceName="agent_id_seq" />
+        </rollback>
+    </changeSet>
+
+    <changeSet id="agent-os-governance-jpa-002" author="forwardmeasure">
+        <comment>Create the agent audit event table.</comment>
+
+        <createSequence
+            sequenceName="agent_audit_event_id_seq"
+            startValue="1"
+            incrementBy="1"
+            cacheSize="1" />
+
+        <createTable tableName="agent_audit_event">
+            <column
+                name="id"
+                type="BIGINT"
+                defaultValueSequenceNext="agent_audit_event_id_seq">
+                <constraints
+                    primaryKey="true"
+                    primaryKeyName="pk_agent_audit_event"
+                    nullable="false" />
+            </column>
+            <column name="version" type="INTEGER" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="agent_id" type="UUID">
+                <constraints nullable="false" />
+            </column>
+            <column name="occurred_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false" />
+            </column>
+            <column name="payload" type="JSONB">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <sql dbms="postgresql">
+            ALTER SEQUENCE agent_audit_event_id_seq OWNED BY agent_audit_event.id;
+        </sql>
+
+        <!-- No FK to agent.id: the audit trail must survive deleteAgentDraft's real hard delete
+             of its subject row (see AgentAuditEventRecord's own doc comment). -->
+        <createIndex tableName="agent_audit_event" indexName="idx_agent_audit_event_agent_id_occurred_at">
+            <column name="agent_id" />
+            <column name="occurred_at" />
+        </createIndex>
+
+        <rollback>
+            <dropTable tableName="agent_audit_event" />
+            <dropSequence sequenceName="agent_audit_event_id_seq" />
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

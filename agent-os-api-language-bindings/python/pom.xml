@@ -37,5 +37,6 @@
     <modules>
         <module>governance-management-service</module>
         <module>execution-management-service</module>
+        <module>policy-management-service</module>
     </modules>
 </project>

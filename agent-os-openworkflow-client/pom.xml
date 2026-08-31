@@ -67,5 +67,9 @@
             <groupId>com.forwardmeasure.openworkflow</groupId>
             <artifactId>openworkflow-execution-client-apachehttp</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.forwardmeasure.openworkflow</groupId>
+            <artifactId>openworkflow-authorization-authzen</artifactId>
+        </dependency>
     </dependencies>
 </project>
