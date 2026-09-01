@@ -31,7 +31,7 @@
     <artifactId>agent-os-execution-management-service</artifactId>
     <packaging>pom</packaging>
 
-    <name>Agent OS :: API Language Bindings :: Java :: execution-management-service</name>
+    <name>ForwardMeasure Agent OS :: API Language Bindings :: Java :: execution-management-service</name>
     <description></description>
 
     <modules>

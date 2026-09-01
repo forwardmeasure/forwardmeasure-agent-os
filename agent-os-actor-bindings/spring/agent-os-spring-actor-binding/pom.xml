@@ -31,7 +31,7 @@
     <artifactId>agent-os-spring-actor-binding</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Actor Bindings :: Spring :: Binding</name>
+    <name>ForwardMeasure Agent OS :: Actor Bindings :: Spring :: Binding</name>
     <description>Shared Spring claims-resolution/authentication and JPA-tenancy wiring, reused by every hosted vertical - not reimplemented per service.</description>
 
     <dependencyManagement>

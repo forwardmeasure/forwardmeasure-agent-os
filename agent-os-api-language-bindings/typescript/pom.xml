@@ -31,7 +31,7 @@
     <artifactId>agent-os-api-language-bindings-typescript</artifactId>
     <packaging>pom</packaging>
 
-    <name>Agent OS :: API Language Bindings :: TypeScript</name>
+    <name>ForwardMeasure Agent OS :: API Language Bindings :: TypeScript</name>
     <description>Generated TypeScript clients, staged as a jar resource for the agent-os-studio npm workspace (WP9) to consume - not yet wired into an npm build here.</description>
 
     <modules>

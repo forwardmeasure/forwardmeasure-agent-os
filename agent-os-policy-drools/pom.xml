@@ -31,7 +31,7 @@
     <artifactId>agent-os-policy-drools</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Policy :: Drools (decision-engine) Adapter</name>
+    <name>ForwardMeasure Agent OS :: Policy :: Drools (decision-engine) Adapter</name>
     <description>PolicyEvaluator adapter that delegates every decision to a forwardmeasure-decision-engine server over gRPC (EvaluationService.Evaluate) - the Drools-based alternative to agent-os-policy-opa's OPA call-out, selected at runtime via agent-os.policy.evaluator=drools (see PolicyEvaluatorProfile, agent-os-domain). Both adapters are swappable implementation details behind the same PolicyEvaluator port; no other module depends on this one directly except a framework binding wiring the port. Requires decision-engine-api-language-bindings-java-grpc from the sibling forwardmeasure-decision-engine repository to be built/published first - see forwardmeasure.decisionengine.version.</description>
 
     <dependencies>

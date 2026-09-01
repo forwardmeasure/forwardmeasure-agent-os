@@ -31,7 +31,7 @@
     <artifactId>agent-os-execution-jpa</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Execution :: JPA</name>
+    <name>ForwardMeasure Agent OS :: Execution :: JPA</name>
     <description>Provider-neutral execution persistence: entities, repositories, services built on forwardmeasure-jpa.</description>
 
     <dependencies>

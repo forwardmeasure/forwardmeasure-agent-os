@@ -31,7 +31,7 @@
     <artifactId>agent-os-api-language-bindings</artifactId>
     <packaging>pom</packaging>
 
-    <name>Agent OS :: API Language Bindings</name>
+    <name>ForwardMeasure Agent OS :: API Language Bindings</name>
     <description>Generated Java/TypeScript/Python bindings per service, real Maven dependency on agent-os-api-specifications (not a filesystem-relative path).</description>
 
     <modules>

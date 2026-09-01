@@ -31,7 +31,7 @@
     <artifactId>agent-os-policy-management-service</artifactId>
     <packaging>pom</packaging>
 
-    <name>Agent OS :: API Language Bindings :: Java :: policy-management-service</name>
+    <name>ForwardMeasure Agent OS :: API Language Bindings :: Java :: policy-management-service</name>
     <description></description>
 
     <modules>

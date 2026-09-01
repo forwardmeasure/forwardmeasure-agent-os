@@ -31,7 +31,7 @@
     <artifactId>agent-os-execution-jaxrs</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Execution :: JAX-RS</name>
+    <name>ForwardMeasure Agent OS :: Execution :: JAX-RS</name>
     <description>Neutral JAX-RS resource classes for execution, hosted identically by all three framework bindings.</description>
 
     <dependencies>

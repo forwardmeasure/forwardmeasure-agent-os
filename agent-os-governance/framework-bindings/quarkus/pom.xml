@@ -31,12 +31,8 @@
     <artifactId>agent-os-governance-quarkus</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Governance :: Quarkus</name>
-    <description>Quarkus persistence wiring and JAX-RS resource hosting for governance, using the shared agent-os-quarkus-actor-binding for auth/claims resolution.</description>
-
-    <properties>
-        <container-image.name>agent-os-governance-quarkus</container-image.name>
-    </properties>
+    <name>ForwardMeasure Agent OS :: Governance :: Quarkus</name>
+    <description>Quarkus persistence wiring and JAX-RS resource hosting for governance, using the shared agent-os-quarkus-actor-binding for auth/claims resolution. Wiring only - no Dockerfile, no application.yaml, no container-image profile; see agent-os-deployments/governance/quarkus (agent-os-governance-quarkus-service) for the deployable assembly that depends on this module, mirroring openworkflow-definition-management-quarkus/-quarkus-service's split exactly.</description>
 
     <dependencyManagement>
         <dependencies>
@@ -79,99 +75,5 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-hibernate-orm</artifactId>
         </dependency>
-        <!--
-        Enforces the @NotNull/@Pattern/@Valid annotations already present on every generated
-        *Api interface's parameters - without this extension those annotations are inert
-        decoration, and a caller omitting a required header/field reaches business logic as a
-        bare null instead of a 400. Matches openworkflow-definition-management-quarkus-service's
-        own real pom exactly, not narrowed - see that module's own comment for the concrete
-        NullPointerException this caught there.
-        -->
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-hibernate-validator</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-jdbc-postgresql</artifactId>
-        </dependency>
-        <!-- application.yaml is otherwise silently ignored - Quarkus only parses YAML config
-             with this extension present. -->
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-config-yaml</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-smallrye-health</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-container-image-docker</artifactId>
-        </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>io.quarkus</groupId>
-                <artifactId>quarkus-maven-plugin</artifactId>
-                <extensions>true</extensions>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>build</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
-
-    <profiles>
-        <profile>
-            <id>container-image</id>
-            <build>
-                <plugins>
-                    <!-- fabric8 docker-maven-plugin, not Quarkus's own quarkus-container-image-docker
-                         - same mechanism as every framework here, matching openworkflow's real
-                         reference exactly. Declared after quarkus-maven-plugin in this pom's own
-                         <build><plugins> (Maven appends a profile's <plugins> after the base
-                         build's, for same-phase executions) so this always builds from
-                         target/quarkus-app/ after Quarkus's own augmentation has already run. -->
-                    <plugin>
-                        <groupId>io.fabric8</groupId>
-                        <artifactId>docker-maven-plugin</artifactId>
-                        <configuration>
-                            <images>
-                                <image>
-                                    <name>${container-image.registry}/${container-image.group}/${container-image.name}:${container-image.tag}</name>
-                                    <build>
-                                        <contextDir>${project.basedir}</contextDir>
-                                        <dockerFile>src/main/docker/Dockerfile.jvm</dockerFile>
-                                    </build>
-                                </image>
-                            </images>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>build-container-image</id>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>build</goal>
-                                </goals>
-                            </execution>
-                            <execution>
-                                <id>push-container-image</id>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>push</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>

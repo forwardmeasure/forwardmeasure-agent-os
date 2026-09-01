@@ -31,7 +31,7 @@
     <artifactId>agent-os-database-migration-service</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Database Migration Service</name>
+    <name>ForwardMeasure Agent OS :: Database Migration Service</name>
     <description>Sole executable multi-tenant-schema migration runner used by deployment orchestration.</description>
 
     <properties>

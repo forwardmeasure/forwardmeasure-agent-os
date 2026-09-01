@@ -31,7 +31,7 @@
     <artifactId>agent-os-policy</artifactId>
     <packaging>pom</packaging>
 
-    <name>Agent OS :: Policy</name>
+    <name>ForwardMeasure Agent OS :: Policy</name>
     <description>Policy vertical: stateless PolicyEvaluator call-out, hosted at parity across Quarkus/Spring/Micronaut. No persistence of its own - every decision is delegated to agent-os-policy-opa.</description>
 
     <modules>

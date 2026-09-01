@@ -31,7 +31,7 @@
     <artifactId>agent-os-execution-application</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Execution :: Application</name>
+    <name>ForwardMeasure Agent OS :: Execution :: Application</name>
     <description>Portable execution application service ports and value types.</description>
 
     <dependencies>

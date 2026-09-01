@@ -31,7 +31,7 @@
     <artifactId>agent-os-domain</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Domain</name>
+    <name>ForwardMeasure Agent OS :: Domain</name>
     <description>Transport- and framework-neutral agent domain: aggregate definition, lifecycle state machine, workflow-revision binding. Governed content is typed as the real OpenAPI-generated AgentDefinitionContent (agent-os-governance-management-models, WP1) - not a hand-rolled parallel type, and not an untyped JsonNode escape hatch either.</description>
 
     <dependencies>

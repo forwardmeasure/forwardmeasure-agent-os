@@ -31,7 +31,7 @@
     <artifactId>agent-os-openworkflow-client</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: OpenWorkflow Public API Adapter</name>
+    <name>ForwardMeasure Agent OS :: OpenWorkflow Public API Adapter</name>
     <description>Wraps OpenWorkflow's generated public definition-management and execution-management clients behind Agent OS-owned ports.</description>
 
     <dependencyManagement>

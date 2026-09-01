@@ -31,7 +31,7 @@
     <artifactId>agent-os-governance-application</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Governance :: Application</name>
+    <name>ForwardMeasure Agent OS :: Governance :: Application</name>
     <description>Portable governance application service ports and value types.</description>
 
     <dependencies>

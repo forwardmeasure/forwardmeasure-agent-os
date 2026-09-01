@@ -31,7 +31,7 @@
     <artifactId>agent-os-policy-jaxrs</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Policy :: JAX-RS</name>
+    <name>ForwardMeasure Agent OS :: Policy :: JAX-RS</name>
     <description>Neutral JAX-RS resource class for policy evaluation, hosted identically by all three framework bindings. Thin by design - PolicyEvaluationRequest/Result are the real generated wire types, reused directly by the PolicyEvaluator port (agent-os-domain), so there is no domain object to map to or from.</description>
 
     <dependencies>
