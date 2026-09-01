@@ -31,7 +31,7 @@
     <artifactId>agent-os-studio-framework-bindings</artifactId>
     <packaging>pom</packaging>
 
-    <name>Agent OS :: Studio :: Framework Bindings</name>
+    <name>ForwardMeasure Agent OS :: Studio :: Framework Bindings</name>
     <description>Quarkus, Spring, and Micronaut hosting for agent-os-studio-runtime, at parity with the governance and execution framework bindings.</description>
 
     <modules>

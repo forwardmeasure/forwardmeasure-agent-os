@@ -31,7 +31,7 @@
     <artifactId>agent-os-policy-opa</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Policy :: OPA Adapter</name>
+    <name>ForwardMeasure Agent OS :: Policy :: OPA Adapter</name>
     <description>PolicyEvaluator adapter that delegates every decision to a real Open Policy Agent server, plus the starter Rego policy bundle. OPA is a swappable implementation detail behind the PolicyEvaluator port (agent-os-domain) - no other module depends on this one directly except a framework binding wiring the port.</description>
 
     <dependencies>

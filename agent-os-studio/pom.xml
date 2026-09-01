@@ -31,7 +31,7 @@
     <artifactId>agent-os-studio</artifactId>
     <packaging>pom</packaging>
 
-    <name>Agent OS :: Studio</name>
+    <name>ForwardMeasure Agent OS :: Studio</name>
     <description>Java-side runtime config resource, plus its own Quarkus/Spring/Micronaut runnable images at parity. npm workspace (design system, React app, generated clients) added in WP9.</description>
 
     <modules>

@@ -101,6 +101,7 @@
         <module>agent-os-database-migrations</module>
         <module>agent-os-database-migration-service</module>
         <module>agent-os-studio</module>
+        <module>agent-os-deployments</module>
         <module>agent-os-architecture-tests</module>
         <module>agent-os-conformance-tests</module>
     </modules>

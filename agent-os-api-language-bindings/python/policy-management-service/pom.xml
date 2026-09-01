@@ -31,8 +31,20 @@
     <artifactId>agent-os-policy-management-client-python</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: policy-management-service :: Client (Python)</name>
+    <name>ForwardMeasure Agent OS :: policy-management-service :: Client (Python)</name>
     <description>Generated Python client.</description>
+
+    <dependencies>
+        <!-- Real Maven dependency so the reactor build-order sorter builds agent-os-api-specifications
+        first - <artifactItems> below alone is invisible to reactor ordering. provided: only needed
+        to unpack resources at build time. -->
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>agent-os-api-specifications</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
 
     <build>
         <resources>

@@ -31,7 +31,7 @@
     <artifactId>agent-os-quarkus-actor-binding</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Actor Bindings :: Quarkus :: Binding</name>
+    <name>ForwardMeasure Agent OS :: Actor Bindings :: Quarkus :: Binding</name>
     <description>Shared Quarkus claims-resolution/authentication and JPA-tenancy wiring, reused by every hosted vertical - not reimplemented per service.</description>
 
     <dependencyManagement>

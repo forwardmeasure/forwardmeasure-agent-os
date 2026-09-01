@@ -31,7 +31,7 @@
     <artifactId>agent-os-studio-spring</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Studio :: Spring</name>
+    <name>ForwardMeasure Agent OS :: Studio :: Spring</name>
     <description>Spring hosting for the dashboard runtime-configuration resource.</description>
 
     <dependencyManagement>

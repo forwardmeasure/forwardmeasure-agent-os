@@ -31,12 +31,8 @@
     <artifactId>agent-os-execution-quarkus</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Execution :: Quarkus</name>
-    <description>Quarkus persistence wiring and JAX-RS resource hosting for execution, using the shared agent-os-quarkus-actor-binding for auth/claims resolution.</description>
-
-    <properties>
-        <container-image.name>agent-os-execution-quarkus</container-image.name>
-    </properties>
+    <name>ForwardMeasure Agent OS :: Execution :: Quarkus</name>
+    <description>Quarkus persistence wiring and JAX-RS resource hosting for execution, using the shared agent-os-quarkus-actor-binding for auth/claims resolution. Wiring only - no Dockerfile, no application.yaml, no container-image profile; see agent-os-deployments/execution/quarkus (agent-os-execution-quarkus-service) for the deployable assembly that depends on this module, mirroring openworkflow-definition-management-quarkus/-quarkus-service's split exactly.</description>
 
     <dependencyManagement>
         <dependencies>
@@ -88,83 +84,5 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-hibernate-orm</artifactId>
         </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-hibernate-validator</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-jdbc-postgresql</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-config-yaml</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-smallrye-health</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-container-image-docker</artifactId>
-        </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>io.quarkus</groupId>
-                <artifactId>quarkus-maven-plugin</artifactId>
-                <extensions>true</extensions>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>build</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
-
-    <profiles>
-        <profile>
-            <id>container-image</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>io.fabric8</groupId>
-                        <artifactId>docker-maven-plugin</artifactId>
-                        <configuration>
-                            <images>
-                                <image>
-                                    <name>${container-image.registry}/${container-image.group}/${container-image.name}:${container-image.tag}</name>
-                                    <build>
-                                        <contextDir>${project.basedir}</contextDir>
-                                        <dockerFile>src/main/docker/Dockerfile.jvm</dockerFile>
-                                    </build>
-                                </image>
-                            </images>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>build-container-image</id>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>build</goal>
-                                </goals>
-                            </execution>
-                            <execution>
-                                <id>push-container-image</id>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>push</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>

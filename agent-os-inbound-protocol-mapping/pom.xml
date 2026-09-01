@@ -31,7 +31,7 @@
     <artifactId>agent-os-inbound-protocol-mapping</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Inbound Protocol Mapping</name>
+    <name>ForwardMeasure Agent OS :: Inbound Protocol Mapping</name>
     <description>Stateless mapping from the domain release representation (coordinates, AgentDefinition, WorkflowReleaseBinding) to protocol-specific wire representations: A2A AgentCard, MCP Tool, A2UI surface, OASF Record. Inbound-facing (how external callers discover/invoke us), as distinct from agent-os-openworkflow-client's outbound-facing mapping (how we call OpenWorkflow). Pure functions - no I/O, no persistence, no lookups; the caller resolves the release and passes it in. Was agent-os-protocol-projection; renamed because 'projection' already had a specific, different meaning in this reactor (the now-eliminated Kafka CQRS read-model), and 'mapping' correctly matches the codebase's own MapStruct-based vocabulary for this kind of domain-to-contract transformation.</description>
 
     <dependencies>

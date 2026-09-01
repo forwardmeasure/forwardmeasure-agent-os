@@ -31,7 +31,7 @@
     <artifactId>agent-os-policy-framework-bindings</artifactId>
     <packaging>pom</packaging>
 
-    <name>Agent OS :: Policy :: Framework Bindings</name>
+    <name>ForwardMeasure Agent OS :: Policy :: Framework Bindings</name>
     <description>Quarkus, Spring, and Micronaut bindings at parity - DI wiring plus JAX-RS resource hosting. No persistence wiring in any of the three - the policy vertical has no database of its own.</description>
 
     <modules>

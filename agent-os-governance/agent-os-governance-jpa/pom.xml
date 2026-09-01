@@ -31,7 +31,7 @@
     <artifactId>agent-os-governance-jpa</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Governance :: JPA</name>
+    <name>ForwardMeasure Agent OS :: Governance :: JPA</name>
     <description>Provider-neutral governance persistence: entities, repositories, services built on forwardmeasure-jpa.</description>
 
     <dependencies>

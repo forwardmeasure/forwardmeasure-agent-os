@@ -31,7 +31,7 @@
     <artifactId>agent-os-execution-framework-bindings</artifactId>
     <packaging>pom</packaging>
 
-    <name>Agent OS :: Execution :: Framework Bindings</name>
+    <name>ForwardMeasure Agent OS :: Execution :: Framework Bindings</name>
     <description>Quarkus, Spring, and Micronaut bindings at parity - DI wiring plus JAX-RS resource hosting, per docs/implementation-plan.md §2.4/§4 WP3-WP4.</description>
 
     <modules>

@@ -31,7 +31,7 @@
     <artifactId>agent-os-governance</artifactId>
     <packaging>pom</packaging>
 
-    <name>Agent OS :: Governance</name>
+    <name>ForwardMeasure Agent OS :: Governance</name>
     <description>Governance vertical: framework-neutral core plus Quarkus/Spring/Micronaut bindings at parity.</description>
 
     <modules>

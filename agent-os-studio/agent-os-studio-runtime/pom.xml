@@ -31,7 +31,7 @@
     <artifactId>agent-os-studio-runtime</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Studio :: Runtime</name>
+    <name>ForwardMeasure Agent OS :: Studio :: Runtime</name>
     <description>Framework-neutral JAX-RS runtime-configuration resource for the dashboard SPA.</description>
 
     <dependencies>

@@ -31,7 +31,7 @@
     <artifactId>agent-os-governance-jaxrs</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Governance :: JAX-RS</name>
+    <name>ForwardMeasure Agent OS :: Governance :: JAX-RS</name>
     <description>Neutral JAX-RS resource classes for governance, hosted identically by all three framework bindings.</description>
 
     <dependencies>

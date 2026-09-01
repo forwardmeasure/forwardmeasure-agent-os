@@ -31,7 +31,7 @@
     <artifactId>agent-os-database-migrations</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Database Migrations</name>
+    <name>ForwardMeasure Agent OS :: Database Migrations</name>
     <description>Aggregate tenant-schema Liquibase changelog for the governance and execution verticals.</description>
 
     <dependencies>

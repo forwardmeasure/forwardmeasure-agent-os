@@ -31,12 +31,8 @@
     <artifactId>agent-os-policy-quarkus</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Policy :: Quarkus</name>
-    <description>Quarkus wiring and JAX-RS resource hosting for policy evaluation, using the shared agent-os-quarkus-actor-binding for auth/claims resolution. No datasource - this vertical has no persistence of its own.</description>
-
-    <properties>
-        <container-image.name>agent-os-policy-quarkus</container-image.name>
-    </properties>
+    <name>ForwardMeasure Agent OS :: Policy :: Quarkus</name>
+    <description>Quarkus wiring and JAX-RS resource hosting for policy evaluation, using the shared agent-os-quarkus-actor-binding for auth/claims resolution. No datasource - this vertical has no persistence of its own. Wiring only - no Dockerfile, no application.yaml, no container-image profile; see agent-os-deployments/policy/quarkus (agent-os-policy-quarkus-service) for the deployable assembly that depends on this module, mirroring openworkflow-definition-management-quarkus/-quarkus-service's split exactly.</description>
 
     <dependencyManagement>
         <dependencies>
@@ -75,91 +71,15 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-rest-jackson</artifactId>
         </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-hibernate-validator</artifactId>
-        </dependency>
         <!-- Not for anything of policy's own - it has no entities - but agent-os-quarkus-actor-
              binding's own QuarkusAgentActorResolver does a real forwardmeasure-jpa-identity Actor
-             lookup (see its own doc comment) inside every agentActors.withActor(...) call, so a
-             working datasource is required even though this vertical persists nothing itself. -->
+             lookup (see its own doc comment) inside every agentActors.withActor(...) call, so this
+             core ORM extension is required even though this vertical persists nothing itself. The
+             DB driver/config-format/health/validation/container-image extensions are deployment-
+             only concerns - see agent-os-deployments/policy/quarkus. -->
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-hibernate-orm</artifactId>
         </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-jdbc-postgresql</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-config-yaml</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-smallrye-health</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-container-image-docker</artifactId>
-        </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>io.quarkus</groupId>
-                <artifactId>quarkus-maven-plugin</artifactId>
-                <extensions>true</extensions>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>build</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
-
-    <profiles>
-        <profile>
-            <id>container-image</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>io.fabric8</groupId>
-                        <artifactId>docker-maven-plugin</artifactId>
-                        <configuration>
-                            <images>
-                                <image>
-                                    <name>${container-image.registry}/${container-image.group}/${container-image.name}:${container-image.tag}</name>
-                                    <build>
-                                        <contextDir>${project.basedir}</contextDir>
-                                        <dockerFile>src/main/docker/Dockerfile.jvm</dockerFile>
-                                    </build>
-                                </image>
-                            </images>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>build-container-image</id>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>build</goal>
-                                </goals>
-                            </execution>
-                            <execution>
-                                <id>push-container-image</id>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>push</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>

@@ -31,7 +31,7 @@
     <artifactId>agent-os-execution</artifactId>
     <packaging>pom</packaging>
 
-    <name>Agent OS :: Execution</name>
+    <name>ForwardMeasure Agent OS :: Execution</name>
     <description>Execution vertical: framework-neutral core plus Quarkus/Spring/Micronaut bindings at parity.</description>
 
     <modules>

@@ -31,7 +31,7 @@
     <artifactId>agent-os-architecture-tests</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Architecture Tests</name>
+    <name>ForwardMeasure Agent OS :: Architecture Tests</name>
     <description>ArchUnit rules protecting the framework-neutral/framework-bound boundary and the no-duplicated-logic-across-frameworks rule (WP7).</description>
 
     <dependencies>

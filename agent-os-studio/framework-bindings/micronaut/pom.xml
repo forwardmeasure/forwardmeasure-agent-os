@@ -31,7 +31,7 @@
     <artifactId>agent-os-studio-micronaut</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Studio :: Micronaut</name>
+    <name>ForwardMeasure Agent OS :: Studio :: Micronaut</name>
     <description>Micronaut hosting for the dashboard runtime-configuration resource.</description>
 
     <dependencyManagement>

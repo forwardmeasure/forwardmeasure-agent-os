@@ -31,12 +31,8 @@
     <artifactId>agent-os-policy-spring</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Policy :: Spring</name>
-    <description>Spring wiring and JAX-RS resource hosting for policy evaluation, using the shared agent-os-spring-actor-binding for auth/claims resolution. No JPA/datasource starters - this vertical has no persistence of its own.</description>
-
-    <properties>
-        <container-image.name>agent-os-policy-spring</container-image.name>
-    </properties>
+    <name>ForwardMeasure Agent OS :: Policy :: Spring</name>
+    <description>Spring wiring and JAX-RS resource hosting for policy evaluation, using the shared agent-os-spring-actor-binding for auth/claims resolution. Wiring only - no Dockerfile, no application.yaml, no container-image profile; see agent-os-deployments/policy/spring (agent-os-policy-spring-service) for the deployable assembly that depends on this module, mirroring openworkflow-definition-management-spring/-spring-service's split exactly.</description>
 
     <dependencyManagement>
         <dependencies>
@@ -75,87 +71,5 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-jersey</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-actuator</artifactId>
-        </dependency>
-        <!-- Not for anything of policy's own - it has no entities - but agent-os-spring-actor-
-             binding's own SpringAgentActorResolver does a real forwardmeasure-jpa-identity Actor
-             lookup inside every agentActors.withActor(...) call, so a working datasource is
-             required even though this vertical persists nothing itself. -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>runtime</scope>
-        </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>repackage</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
-
-    <profiles>
-        <profile>
-            <id>container-image</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>io.fabric8</groupId>
-                        <artifactId>docker-maven-plugin</artifactId>
-                        <configuration>
-                            <images>
-                                <image>
-                                    <name>${container-image.registry}/${container-image.group}/${container-image.name}:${container-image.tag}</name>
-                                    <build>
-                                        <contextDir>${project.basedir}</contextDir>
-                                        <dockerFile>src/main/docker/Dockerfile.jvm</dockerFile>
-                                        <args>
-                                            <APPLICATION_JAR>target/${project.build.finalName}.jar</APPLICATION_JAR>
-                                            <BASE_IMAGE>${container-image.base-jre}</BASE_IMAGE>
-                                        </args>
-                                    </build>
-                                </image>
-                            </images>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>build-container-image</id>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>build</goal>
-                                </goals>
-                            </execution>
-                            <execution>
-                                <id>push-container-image</id>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>push</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>

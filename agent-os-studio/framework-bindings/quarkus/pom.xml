@@ -31,7 +31,7 @@
     <artifactId>agent-os-studio-quarkus</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Studio :: Quarkus</name>
+    <name>ForwardMeasure Agent OS :: Studio :: Quarkus</name>
     <description>Quarkus hosting for the dashboard runtime-configuration resource.</description>
 
     <dependencyManagement>

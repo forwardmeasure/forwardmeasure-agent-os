@@ -31,7 +31,7 @@
     <artifactId>agent-os-api-language-bindings-java</artifactId>
     <packaging>pom</packaging>
 
-    <name>Agent OS :: API Language Bindings :: Java</name>
+    <name>ForwardMeasure Agent OS :: API Language Bindings :: Java</name>
     <description></description>
 
     <modules>

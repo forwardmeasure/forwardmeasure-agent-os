@@ -31,7 +31,7 @@
     <artifactId>agent-os-actor-bindings</artifactId>
     <packaging>pom</packaging>
 
-    <name>Agent OS :: Actor Bindings</name>
+    <name>ForwardMeasure Agent OS :: Actor Bindings</name>
     <description>Shared, cross-service, per-framework claims-resolution/authentication and JPA-tenancy wiring - one module per framework, reused by every hosted vertical instead of reimplemented per service (the single highest-value fix from docs/implementation-plan.md WP3). Named for AgentActor, the domain type it resolves - not 'framework-bindings' (was agent-os-framework-bindings; see §2.11).</description>
 
     <modules>

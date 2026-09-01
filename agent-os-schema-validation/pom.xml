@@ -31,10 +31,19 @@
     <artifactId>agent-os-schema-validation</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Schema Validation</name>
+    <name>ForwardMeasure Agent OS :: Schema Validation</name>
     <description>Runtime JSON Schema validation of AgentDefinition domain objects. The schema itself is GENERATED from agent-os-api-specifications' OpenAPI component schema (WP1/WP2), not hand-authored here - this module only consumes it and runs validation in-process, independent of any HTTP framework, per docs/implementation-plan.md §2.6.</description>
 
     <dependencies>
+        <!-- Real Maven dependency so the reactor build-order sorter builds agent-os-api-specifications
+        first - <artifactItems> below alone is invisible to reactor ordering. provided: only needed
+        to unpack resources at build time. -->
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>agent-os-api-specifications</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>agent-os-domain</artifactId>

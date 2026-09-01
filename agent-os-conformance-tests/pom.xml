@@ -31,7 +31,7 @@
     <artifactId>agent-os-conformance-tests</artifactId>
     <packaging>jar</packaging>
 
-    <name>Agent OS :: Conformance Tests</name>
+    <name>ForwardMeasure Agent OS :: Conformance Tests</name>
     <description>Black-box, opt-in, no-mocks conformance gate against a real, separately-deployed Agent OS + OpenWorkflow pair.</description>
 
     <dependencies>

@@ -31,7 +31,7 @@
     <artifactId>agent-os-actor-bindings-spring</artifactId>
     <packaging>pom</packaging>
 
-    <name>Agent OS :: Actor Bindings :: Spring</name>
+    <name>ForwardMeasure Agent OS :: Actor Bindings :: Spring</name>
     <description></description>
 
     <modules>
