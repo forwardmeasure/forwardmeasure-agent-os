@@ -58,7 +58,6 @@
         <dependency>
             <groupId>io.micronaut.jaxrs</groupId>
             <artifactId>micronaut-jaxrs-server</artifactId>
-            <version>${micronaut.platform.version}</version>
         </dependency>
     </dependencies>
 </project>

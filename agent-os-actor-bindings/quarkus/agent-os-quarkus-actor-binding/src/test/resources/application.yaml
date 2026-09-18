@@ -1,0 +1,13 @@
+quarkus:
+  datasource:
+    db-kind: postgresql
+    devservices:
+      enabled: false
+  hibernate-orm:
+    multitenant: SCHEMA
+    packages: com.forwardmeasure.jpa.identity.entity
+    schema-management:
+      strategy: none
+    mapping:
+      format:
+        global: ignore

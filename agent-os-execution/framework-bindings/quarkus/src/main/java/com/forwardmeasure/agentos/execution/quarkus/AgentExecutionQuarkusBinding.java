@@ -30,9 +30,9 @@ import com.forwardmeasure.agentos.governance.jpa.service.impl.AgentAuditEventSer
 import com.forwardmeasure.agentos.governance.jpa.service.impl.AgentServiceImpl;
 import com.forwardmeasure.agentos.openworkflow.client.OpenWorkflowExecutionDispatcher;
 import com.forwardmeasure.agentos.openworkflow.client.OpenWorkflowWorkflowReleaseResolver;
+import com.forwardmeasure.authzen.client.OAuthClientCredentialsTokenSupplier;
 import com.forwardmeasure.jpa.core.repository.AbstractBaseRepository;
 import com.forwardmeasure.jpa.identity.service.ActorService;
-import com.forwardmeasure.openworkflow.authorization.authzen.OAuthClientCredentialsTokenSupplier;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.persistence.EntityManager;

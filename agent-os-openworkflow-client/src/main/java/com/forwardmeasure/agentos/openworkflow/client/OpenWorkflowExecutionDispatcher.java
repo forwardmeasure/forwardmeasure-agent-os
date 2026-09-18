@@ -15,7 +15,7 @@ import com.forwardmeasure.agentos.domain.OpenWorkflowExecutionSnapshot;
 import com.forwardmeasure.agentos.domain.WorkflowExecutionDispatcher;
 import com.forwardmeasure.agentos.domain.WorkflowReleaseBinding;
 import com.forwardmeasure.agentos.execution.api.model.AgentExecutionHistoryEntry;
-import com.forwardmeasure.openworkflow.authorization.authzen.BearerTokenSupplier;
+import com.forwardmeasure.authzen.client.BearerTokenSupplier;
 import com.forwardmeasure.openworkflow.execution.api.model.Execution;
 import com.forwardmeasure.openworkflow.execution.api.model.ExecutionControl;
 import com.forwardmeasure.openworkflow.execution.api.model.ExecutionHistoryEntry;

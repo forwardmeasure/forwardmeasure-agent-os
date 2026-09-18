@@ -48,6 +48,10 @@
             <artifactId>forwardmeasure-jpa-liquibase</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.forwardmeasure.jpa</groupId>
+            <artifactId>forwardmeasure-jpa-datasource</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>

@@ -19,16 +19,13 @@ import com.forwardmeasure.agentos.domain.AgentActor;
 import com.forwardmeasure.jpa.identity.entity.Actor;
 import com.forwardmeasure.jpa.identity.entity.IdentityType;
 import com.forwardmeasure.jpa.identity.repository.ActorRepository;
-import com.forwardmeasure.jpa.identity.service.impl.ActorServiceImpl;
-import com.forwardmeasure.jpa.liquibase.TenantSchemaMigrator;
+import com.forwardmeasure.jpa.identity.service.ActorService;
 import com.forwardmeasure.jpa.tenancy.TenantId;
-import com.forwardmeasure.jpa.tenancy.TenantSchema;
-import com.forwardmeasure.jpa.tenancy.ThreadBoundTenantScope;
-import com.forwardmeasure.testcontainers.junit.postgresql.WithPostgreSqlContainer;
-import com.forwardmeasure.testcontainers.postgresql.PostgreSqlTestContainer;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
-import jakarta.persistence.Persistence;
+import com.forwardmeasure.jpa.tenancy.TenantScope;
+import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.junit.QuarkusTest;
+import jakarta.inject.Inject;
+import jakarta.transaction.UserTransaction;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Set;
@@ -37,103 +34,89 @@ import java.util.function.Function;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.junit.jupiter.api.Test;
 
-@WithPostgreSqlContainer(databaseName = "agent_os_quarkus_actor_binding_contract")
+// Real @QuarkusTest boot (not a hand-wired EntityManagerFactory) - proves QuarkusAgentActorResolver
+// actually routes through real Hibernate multi-tenancy (QuarkusTenantConnectionResolver, injected
+// by Quarkus's own build-time augmentation, reading TenantScope) the same way a real request would,
+// not just that the resolver's own open/close bookkeeping works against a schema hand-pinned to the
+// right place regardless of what TenantScope carries.
+@QuarkusTest
+@QuarkusTestResource(AgentOsQuarkusPostgreSqlResource.class)
 class QuarkusAgentActorResolverPostgreSqlIntegrationTest {
 
   private static final String CLIENT_ID = "agent-os";
   private static final ObjectMapper JSON = new ObjectMapper();
 
+  @Inject TenantScope tenantScope;
+
+  @Inject UserTransaction transaction;
+
+  @Inject ActorRepository actorRepository;
+
+  @Inject ActorService actorService;
+
   @Test
-  void resolvesTheAgentActorForAProvisionedSubject(PostgreSqlTestContainer database) {
+  void resolvesTheAgentActorForAProvisionedSubject() throws Exception {
+    String subject = "keycloak-subject-" + UUID.randomUUID();
+    provisionActor(subject);
     TenantId tenantId = new TenantId(UUID.randomUUID());
-    TenantSchema tenant = prepare(database, tenantId);
-    try (EntityManagerFactory entityManagers = entityManagers(database, tenant)) {
-      String subject = "keycloak-subject-" + UUID.randomUUID();
-      provisionActor(entityManagers, subject);
 
-      QuarkusAgentActorResolver resolver =
-          resolver(entityManagers, new ThreadBoundTenantScope(), rawToken(tenantId, subject));
+    QuarkusAgentActorResolver resolver = resolver(rawToken(tenantId, subject));
 
-      AgentActor resolved = resolver.withActor(actor -> actor);
+    AgentActor resolved = resolver.withActor(actor -> actor);
 
-      assertEquals(subject, resolved.actor().subject());
-      assertEquals(tenantId.value(), resolved.tenantId());
-    }
+    assertEquals(subject, resolved.actor().subject());
+    assertEquals(tenantId.value(), resolved.tenantId());
   }
 
   @Test
-  void failsClosedWhenNoActorIsProvisionedForTheSubject(PostgreSqlTestContainer database) {
-    TenantId tenantId = new TenantId(UUID.randomUUID());
-    TenantSchema tenant = prepare(database, tenantId);
-    try (EntityManagerFactory entityManagers = entityManagers(database, tenant)) {
-      QuarkusAgentActorResolver resolver =
-          resolver(
-              entityManagers, new ThreadBoundTenantScope(), rawToken(tenantId, "unknown-subject"));
-
-      assertThrows(SecurityException.class, () -> resolver.withActor(actor -> actor));
-    }
+  void failsClosedWhenNoActorIsProvisionedForTheSubject() {
+    QuarkusAgentActorResolver resolver =
+        resolver(rawToken(new TenantId(UUID.randomUUID()), "unknown-subject"));
+    assertThrows(SecurityException.class, () -> resolver.withActor(actor -> actor));
   }
 
   @Test
-  void failsClosedWhenNoJwtIsAuthenticated(PostgreSqlTestContainer database) {
-    TenantId tenantId = new TenantId(UUID.randomUUID());
-    TenantSchema tenant = prepare(database, tenantId);
-    try (EntityManagerFactory entityManagers = entityManagers(database, tenant)) {
-      // A null raw token is exactly what JsonWebToken.getRawToken() returns for an
-      // unauthenticated request in a real Quarkus app.
-      QuarkusAgentActorResolver resolver =
-          resolver(entityManagers, new ThreadBoundTenantScope(), null);
-
-      assertThrows(SecurityException.class, () -> resolver.withActor(actor -> actor));
-    }
+  void failsClosedWhenNoJwtIsAuthenticated() {
+    // A null raw token is exactly what JsonWebToken.getRawToken() returns for an unauthenticated
+    // request in a real Quarkus app.
+    QuarkusAgentActorResolver resolver = resolver(null);
+    assertThrows(SecurityException.class, () -> resolver.withActor(actor -> actor));
   }
 
   @Test
-  void closesTheTenantScopeEvenWhenTheCallerThrows(PostgreSqlTestContainer database) {
-    TenantId tenantId = new TenantId(UUID.randomUUID());
-    TenantSchema tenant = prepare(database, tenantId);
-    try (EntityManagerFactory entityManagers = entityManagers(database, tenant)) {
-      String subject = "keycloak-subject-" + UUID.randomUUID();
-      provisionActor(entityManagers, subject);
-      ThreadBoundTenantScope tenants = new ThreadBoundTenantScope();
-      QuarkusAgentActorResolver resolver =
-          resolver(entityManagers, tenants, rawToken(tenantId, subject));
+  void closesTheTenantScopeEvenWhenTheCallerThrows() throws Exception {
+    String subject = "keycloak-subject-" + UUID.randomUUID();
+    provisionActor(subject);
+    QuarkusAgentActorResolver resolver =
+        resolver(rawToken(new TenantId(UUID.randomUUID()), subject));
 
-      assertTrue(tenants.current().isEmpty());
-      Function<AgentActor, Void> throwing =
-          actor -> {
-            throw new IllegalStateException("caller failure");
-          };
-      assertThrows(IllegalStateException.class, () -> resolver.withActor(throwing));
-      assertTrue(tenants.current().isEmpty(), "the tenant scope must be closed after the throw");
-    }
+    assertTrue(tenantScope.current().isEmpty());
+    Function<AgentActor, Void> throwing =
+        actor -> {
+          throw new IllegalStateException("caller failure");
+        };
+    assertThrows(IllegalStateException.class, () -> resolver.withActor(throwing));
+    assertTrue(tenantScope.current().isEmpty(), "the tenant scope must be closed after the throw");
   }
 
-  private QuarkusAgentActorResolver resolver(
-      EntityManagerFactory entityManagers, ThreadBoundTenantScope tenants, String rawToken) {
-    ActorRepository actorRepository = new ActorRepository();
-    EntityManager entityManager = entityManagers.createEntityManager();
-    actorRepository.bindPersistenceContext(entityManager);
+  private QuarkusAgentActorResolver resolver(String rawToken) {
     return new QuarkusAgentActorResolver(
-        fakeToken(rawToken), JSON, new ActorServiceImpl(actorRepository), tenants, CLIENT_ID);
+        fakeToken(rawToken), JSON, actorService, tenantScope, CLIENT_ID);
   }
 
-  private void provisionActor(EntityManagerFactory entityManagers, String subject) {
-    EntityManager entityManager = entityManagers.createEntityManager();
-    var transaction = entityManager.getTransaction();
-    try {
-      transaction.begin();
-      ActorRepository actors = new ActorRepository();
-      actors.bindPersistenceContext(entityManager);
-      actors.persist(
+  private void provisionActor(String subject) throws Exception {
+    transaction.begin();
+    try (var ignored = tenantScope.open(AgentOsQuarkusPostgreSqlResource.TENANT_DATABASE)) {
+      actorRepository.persist(
           Actor.builder()
               .subjectIdentifier(subject)
               .identityProvider("keycloak")
               .type(IdentityType.HUMAN)
               .build());
       transaction.commit();
-    } finally {
-      entityManager.close();
+    } catch (Exception | Error failure) {
+      transaction.rollback();
+      throw failure;
     }
   }
 
@@ -167,13 +150,18 @@ class QuarkusAgentActorResolverPostgreSqlIntegrationTest {
   private String rawToken(TenantId tenantId, String subject) {
     try {
       String header = segment(Map.of("alg", "none"));
+      // The organization claim's map key IS the alias TenantDatabase.forAlias(...) derives from -
+      // must match AgentOsQuarkusPostgreSqlResource.TENANT_DATABASE's own alias exactly, since
+      // this test proves real routing, not a schema hand-pinned regardless of what the JWT says.
+      // tenantId itself is independent of the alias (TenantDatabase is no longer a pure function
+      // of TenantId - see that class's own javadoc), so any value is fine here.
       Map<String, Object> claims =
           Map.of(
               "sub",
               subject,
               "organization",
               Map.of(
-                  "acme",
+                  AgentOsQuarkusPostgreSqlResource.TENANT_DATABASE.alias(),
                   Map.of(
                       "id", "org-" + UUID.randomUUID(),
                       "forwardmeasure.tenant-id", tenantId.value().toString(),
@@ -192,31 +180,5 @@ class QuarkusAgentActorResolverPostgreSqlIntegrationTest {
 
   private static String segment(Object value) throws Exception {
     return Base64.getUrlEncoder().withoutPadding().encodeToString(JSON.writeValueAsBytes(value));
-  }
-
-  private TenantSchema prepare(PostgreSqlTestContainer database, TenantId tenantId) {
-    TenantSchema tenant = TenantSchema.forTenant(tenantId);
-    database.createSchema(tenant.value());
-    TenantSchemaMigrator migrator =
-        new TenantSchemaMigrator(
-            database.dataSource(),
-            "db/changelog/agent-os-quarkus-actor-binding-test.xml",
-            getClass().getClassLoader());
-    assertTrue(migrator.validate(tenant).valid());
-    migrator.migrate(tenant);
-    assertTrue(migrator.status(tenant).current());
-    return tenant;
-  }
-
-  private EntityManagerFactory entityManagers(
-      PostgreSqlTestContainer database, TenantSchema tenant) {
-    return Persistence.createEntityManagerFactory(
-        "agent-os-quarkus-actor-binding-test",
-        Map.of(
-            "jakarta.persistence.jdbc.url", database.hostJdbcUrl(),
-            "jakarta.persistence.jdbc.user", database.username(),
-            "jakarta.persistence.jdbc.password", database.password(),
-            "jakarta.persistence.jdbc.driver", "org.postgresql.Driver",
-            "hibernate.default_schema", tenant.value()));
   }
 }

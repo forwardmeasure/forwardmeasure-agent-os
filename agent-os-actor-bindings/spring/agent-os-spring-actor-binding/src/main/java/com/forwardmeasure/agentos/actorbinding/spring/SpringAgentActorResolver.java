@@ -14,12 +14,11 @@ import com.forwardmeasure.agentos.domain.ActorReference;
 import com.forwardmeasure.agentos.domain.ActorType;
 import com.forwardmeasure.agentos.domain.AgentActor;
 import com.forwardmeasure.agentos.domain.AgentActorResolver;
+import com.forwardmeasure.authzen.ActiveOrganization;
+import com.forwardmeasure.authzen.KeycloakOrganizationClaims;
 import com.forwardmeasure.jpa.identity.entity.Actor;
 import com.forwardmeasure.jpa.identity.service.ActorService;
-import com.forwardmeasure.jpa.tenancy.TenantSchema;
 import com.forwardmeasure.jpa.tenancy.TenantScope;
-import com.forwardmeasure.openworkflow.authorization.ActiveOrganization;
-import com.forwardmeasure.openworkflow.authorization.KeycloakOrganizationClaims;
 import java.util.Objects;
 import java.util.function.Function;
 import org.springframework.beans.factory.annotation.Value;
@@ -62,9 +61,8 @@ public class SpringAgentActorResolver implements AgentActorResolver {
     }
     ActiveOrganization organization =
         KeycloakOrganizationClaims.extract(jwtAuthentication.getToken().getClaims(), clientId);
-    TenantSchema schema = TenantSchema.forTenant(organization.tenantId());
     return tenants.call(
-        schema,
+        organization.tenantDatabase(),
         () -> {
           Actor actor =
               actors

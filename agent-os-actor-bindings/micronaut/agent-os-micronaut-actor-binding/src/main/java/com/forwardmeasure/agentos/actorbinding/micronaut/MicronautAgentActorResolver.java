@@ -14,12 +14,11 @@ import com.forwardmeasure.agentos.domain.ActorReference;
 import com.forwardmeasure.agentos.domain.ActorType;
 import com.forwardmeasure.agentos.domain.AgentActor;
 import com.forwardmeasure.agentos.domain.AgentActorResolver;
+import com.forwardmeasure.authzen.ActiveOrganization;
+import com.forwardmeasure.authzen.KeycloakOrganizationClaims;
 import com.forwardmeasure.jpa.identity.entity.Actor;
 import com.forwardmeasure.jpa.identity.service.ActorService;
-import com.forwardmeasure.jpa.tenancy.TenantSchema;
 import com.forwardmeasure.jpa.tenancy.TenantScope;
-import com.forwardmeasure.openworkflow.authorization.ActiveOrganization;
-import com.forwardmeasure.openworkflow.authorization.KeycloakOrganizationClaims;
 import io.micronaut.context.annotation.Value;
 import io.micronaut.security.authentication.Authentication;
 import io.micronaut.security.utils.SecurityService;
@@ -71,9 +70,8 @@ public class MicronautAgentActorResolver implements AgentActorResolver {
                         "No authenticated JWT principal for the current request"));
     ActiveOrganization organization =
         KeycloakOrganizationClaims.extract(authentication.getAttributes(), clientId);
-    TenantSchema schema = TenantSchema.forTenant(organization.tenantId());
     return tenants.call(
-        schema,
+        organization.tenantDatabase(),
         () -> {
           Actor actor =
               actors

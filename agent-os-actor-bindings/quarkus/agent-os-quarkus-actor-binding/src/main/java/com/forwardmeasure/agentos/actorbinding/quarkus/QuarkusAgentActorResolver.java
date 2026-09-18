@@ -16,12 +16,11 @@ import com.forwardmeasure.agentos.domain.ActorReference;
 import com.forwardmeasure.agentos.domain.ActorType;
 import com.forwardmeasure.agentos.domain.AgentActor;
 import com.forwardmeasure.agentos.domain.AgentActorResolver;
+import com.forwardmeasure.authzen.ActiveOrganization;
+import com.forwardmeasure.authzen.KeycloakOrganizationClaims;
 import com.forwardmeasure.jpa.identity.entity.Actor;
 import com.forwardmeasure.jpa.identity.service.ActorService;
-import com.forwardmeasure.jpa.tenancy.TenantSchema;
 import com.forwardmeasure.jpa.tenancy.TenantScope;
-import com.forwardmeasure.openworkflow.authorization.ActiveOrganization;
-import com.forwardmeasure.openworkflow.authorization.KeycloakOrganizationClaims;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import java.io.IOException;
@@ -73,9 +72,8 @@ public class QuarkusAgentActorResolver implements AgentActorResolver {
   public <T> T withActor(Function<AgentActor, T> work) {
     Objects.requireNonNull(work, "work");
     ActiveOrganization organization = KeycloakOrganizationClaims.extract(rawClaims(), clientId);
-    TenantSchema schema = TenantSchema.forTenant(organization.tenantId());
     return tenants.call(
-        schema,
+        organization.tenantDatabase(),
         () -> {
           Actor actor =
               actors

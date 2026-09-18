@@ -23,12 +23,14 @@ import com.forwardmeasure.agentos.governance.jpa.entity.Agent;
 import com.forwardmeasure.agentos.governance.jpa.repository.AgentRepository;
 import com.forwardmeasure.agentos.governance.jpa.service.AgentService;
 import com.forwardmeasure.agentos.governance.jpa.service.impl.AgentServiceImpl;
+import com.forwardmeasure.database.migration.api.DatabaseTarget;
+import com.forwardmeasure.database.migration.api.MigrationPlan;
+import com.forwardmeasure.database.migration.api.MigrationRequest;
+import com.forwardmeasure.database.migration.liquibase.LiquibaseMigrationEngine;
 import com.forwardmeasure.jpa.identity.entity.Actor;
 import com.forwardmeasure.jpa.identity.entity.IdentityType;
 import com.forwardmeasure.jpa.identity.repository.ActorRepository;
-import com.forwardmeasure.jpa.liquibase.TenantSchemaMigrator;
-import com.forwardmeasure.jpa.tenancy.TenantId;
-import com.forwardmeasure.jpa.tenancy.TenantSchema;
+import com.forwardmeasure.jpa.tenancy.FunctionalSchema;
 import com.forwardmeasure.testcontainers.junit.postgresql.WithPostgreSqlContainer;
 import com.forwardmeasure.testcontainers.postgresql.PostgreSqlTestContainer;
 import jakarta.persistence.EntityManager;
@@ -48,8 +50,8 @@ class AgentPostgreSqlIntegrationTest {
 
   @Test
   void persistsAndQueriesTheFullGovernanceLifecycle(PostgreSqlTestContainer database) {
-    TenantSchema tenant = prepare(database);
-    try (EntityManagerFactory entityManagers = entityManagers(database, tenant)) {
+    prepare(database);
+    try (EntityManagerFactory entityManagers = entityManagers(database)) {
       Long agentId =
           inTransaction(
               entityManagers,
@@ -152,22 +154,21 @@ class AgentPostgreSqlIntegrationTest {
         URI.create("https://agents.example.com/invoice-reconciler"));
   }
 
-  private TenantSchema prepare(PostgreSqlTestContainer database) {
-    TenantSchema tenant = TenantSchema.forTenant(new TenantId(UUID.randomUUID()));
-    database.createSchema(tenant.value());
-    TenantSchemaMigrator migrator =
-        new TenantSchemaMigrator(
-            database.dataSource(),
-            "db/changelog/agent-os-governance-jpa-test.xml",
-            getClass().getClassLoader());
-    assertTrue(migrator.validate(tenant).valid());
-    migrator.migrate(tenant);
-    assertTrue(migrator.status(tenant).current());
-    return tenant;
+  // Schema is agent-os's own real FunctionalSchema, not an arbitrary per-tenant one - this test
+  // never opens a TenantScope, so the schema it targets should match what a real deployment
+  // actually names it, not a fake tenant-shaped placeholder.
+  private void prepare(PostgreSqlTestContainer database) {
+    database.createSchema(FunctionalSchema.AGENT_OS.schemaName());
+    new LiquibaseMigrationEngine(getClass().getClassLoader())
+        .migrate(
+            new MigrationRequest(
+                database.dataSource(),
+                DatabaseTarget.schema(FunctionalSchema.AGENT_OS.schemaName()),
+                MigrationPlan.liquibase(
+                    "agent-os", "db/changelog/agent-os-governance-jpa-test.xml")));
   }
 
-  private EntityManagerFactory entityManagers(
-      PostgreSqlTestContainer database, TenantSchema tenant) {
+  private EntityManagerFactory entityManagers(PostgreSqlTestContainer database) {
     return Persistence.createEntityManagerFactory(
         "agent-os-governance-jpa-test",
         Map.of(
@@ -175,7 +176,7 @@ class AgentPostgreSqlIntegrationTest {
             "jakarta.persistence.jdbc.user", database.username(),
             "jakarta.persistence.jdbc.password", database.password(),
             "jakarta.persistence.jdbc.driver", "org.postgresql.Driver",
-            "hibernate.default_schema", tenant.value()));
+            "hibernate.default_schema", FunctionalSchema.AGENT_OS.schemaName()));
   }
 
   private <T> T inTransaction(EntityManagerFactory entityManagers, Function<Context, T> work) {

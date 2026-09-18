@@ -11,7 +11,9 @@
 package com.forwardmeasure.agentos.migration.service;
 
 import com.forwardmeasure.agentos.migration.AgentOsTenantMigrator;
-import com.forwardmeasure.jpa.tenancy.TenantId;
+import com.forwardmeasure.jpa.datasource.TenantDataSourceRegistry;
+import com.forwardmeasure.jpa.datasource.TenantDataSourceTemplate;
+import com.forwardmeasure.jpa.tenancy.TenantDatabase;
 import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -21,34 +23,61 @@ import java.util.Arrays;
 import java.util.logging.Logger;
 import javax.sql.DataSource;
 
-// Bounded Kubernetes migration-job entry point - a direct port of openworkflow-migrations' own
-// real, already-deployed OpenWorkflowMigrationsMain (consulted per explicit instruction), with the
-// Cassandra and "additional runtime databases" (single-tenant apps like Keycloak/Superset sharing
-// the same Postgres cluster) branches dropped: agent-os is Postgres-only and does not provision
-// database roles on behalf of other applications.
+// Bounded Kubernetes migration-job entry point - database-per-tenant, schema-per-product, mirroring
+// forwardmeasure-entity-intelligence's own real EntityIntelligenceMigrationsMain exactly (same
+// alias-derivation, same TenantDataSourceRegistry-per-run shape) rather than openworkflow-
+// migrations' own OpenWorkflowMigrationsMain, which additionally owns Cassandra and "additional
+// runtime databases" (single-tenant apps like Keycloak/Superset) that don't apply here: agent-os is
+// Postgres-only and does not provision database roles on behalf of other applications.
 public final class AgentOsMigrationsMain {
   private AgentOsMigrationsMain() {}
 
   public static void main(String[] arguments) {
-    // Administrator credential - this process's own connection. Creates/rotates the runtime role
-    // below and applies schema migrations; never the role application services connect as.
+    // Administrator credential - this process's own connection to the platform's own small
+    // control-plane database. Used only to create each tenant's own database (idempotent) and
+    // create/rotate agent-os's own runtime role; never the role application services connect as.
     String url = required("AGENT_OS_DATABASE_URL");
     String username = required("AGENT_OS_DATABASE_USERNAME");
     String password = required("AGENT_OS_DATABASE_PASSWORD");
-    // Runtime credential - never connected as here, only used to create/rotate that role and grant
-    // it scoped, per-tenant-schema privileges. agent-os-governance-{fw}/agent-os-execution-{fw}
-    // connect as this role at request-serving time, never as the administrator credential above.
+    // Runtime credential - never connected as here, only created/rotated and granted scoped,
+    // per-tenant-database privileges - agent-os's own runtime role.
     String runtimeUsername = required("AGENT_OS_RUNTIME_DATABASE_USERNAME");
     String runtimePassword = required("AGENT_OS_RUNTIME_DATABASE_PASSWORD");
+
+    DataSource platformDataSource = new DriverManagerDataSource(url, username, password);
+    TenantDataSourceRegistry tenantDataSources =
+        new TenantDataSourceRegistry(
+            new TenantDataSourceTemplate(databaseUrlPrefix(url), username, password));
     AgentOsTenantMigrator migrator =
-        new AgentOsTenantMigrator(
-            new DriverManagerDataSource(url, username, password), runtimeUsername);
+        new AgentOsTenantMigrator(platformDataSource, tenantDataSources, runtimeUsername);
     migrator.ensureRuntimeRole(runtimePassword);
-    Arrays.stream(required("AGENT_OS_TENANT_IDS").split(","))
+    // Same alias-derivation as fowf's own OpenWorkflowMigrationsMain and fei's own
+    // EntityIntelligenceMigrationsMain - TenantDatabase is always derived from the tenant's alias,
+    // never supplied directly.
+    Arrays.stream(required("AGENT_OS_TENANTS").split(","))
         .map(String::trim)
         .filter(value -> !value.isEmpty())
-        .map(TenantId::parse)
-        .forEach(migrator::provisionAndMigrate);
+        .map(value -> value.split(":", 2))
+        .forEach(
+            parts -> {
+              if (parts.length != 2) {
+                throw new IllegalArgumentException("Tenant entries must be alias:display-name");
+              }
+              migrator.provisionAndMigrate(TenantDatabase.forAlias(parts[0]));
+            });
+  }
+
+  /**
+   * Derives the tenant-database-per-tenant JDBC URL prefix from {@code AGENT_OS_DATABASE_URL} (a
+   * complete URL to the platform database) by stripping its trailing database-name segment.
+   */
+  static String databaseUrlPrefix(String url) {
+    int lastSlash = url.lastIndexOf('/');
+    if (lastSlash < 0) {
+      throw new IllegalArgumentException(
+          "AGENT_OS_DATABASE_URL must include a database name: " + url);
+    }
+    return url.substring(0, lastSlash + 1);
   }
 
   private static String required(String name) {

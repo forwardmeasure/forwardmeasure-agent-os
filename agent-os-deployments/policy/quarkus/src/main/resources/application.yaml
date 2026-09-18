@@ -30,6 +30,15 @@ quarkus:
     packages: com.forwardmeasure.jpa.identity.entity
     schema-management:
       strategy: none
+# Real multi-tenant JPA bootstrap (forwardmeasure-jpa-quarkus): database-per-tenant, schema-per-product.
+forwardmeasure:
+  jpa:
+    functional-schema: agent_os
+    tenant-database:
+      host: ${AGENT_OS_DATABASE_HOST:localhost}
+      port: ${AGENT_OS_DATABASE_PORT:5432}
+      username: ${AGENT_OS_DATABASE_USERNAME:agent_os}
+      password: ${AGENT_OS_DATABASE_PASSWORD:agent_os}
 agent-os:
   security:
     client-id: ${AGENT_OS_CLIENT_ID:agent-os}

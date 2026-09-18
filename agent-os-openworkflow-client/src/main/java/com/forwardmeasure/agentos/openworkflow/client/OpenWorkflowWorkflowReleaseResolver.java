@@ -13,7 +13,7 @@ package com.forwardmeasure.agentos.openworkflow.client;
 import com.forwardmeasure.agentos.domain.WorkflowReleaseBinding;
 import com.forwardmeasure.agentos.domain.WorkflowReleaseResolver;
 import com.forwardmeasure.agentos.domain.WorkflowReleaseUnavailableException;
-import com.forwardmeasure.openworkflow.authorization.authzen.BearerTokenSupplier;
+import com.forwardmeasure.authzen.client.BearerTokenSupplier;
 import com.forwardmeasure.openworkflow.definition.management.api.model.WorkflowDefinition;
 import com.forwardmeasure.openworkflow.definition.management.api.model.WorkflowDefinitionStatus;
 import com.forwardmeasure.openworkflow.definition.management.client.ApiClient;

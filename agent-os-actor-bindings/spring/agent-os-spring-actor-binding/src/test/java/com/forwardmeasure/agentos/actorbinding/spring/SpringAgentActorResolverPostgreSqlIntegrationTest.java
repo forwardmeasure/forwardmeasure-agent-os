@@ -15,135 +15,184 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.forwardmeasure.agentos.domain.AgentActor;
+import com.forwardmeasure.database.migration.api.DatabaseTarget;
+import com.forwardmeasure.database.migration.api.MigrationPlan;
+import com.forwardmeasure.database.migration.api.MigrationRequest;
+import com.forwardmeasure.database.migration.liquibase.LiquibaseMigrationEngine;
 import com.forwardmeasure.jpa.identity.entity.Actor;
 import com.forwardmeasure.jpa.identity.entity.IdentityType;
 import com.forwardmeasure.jpa.identity.repository.ActorRepository;
-import com.forwardmeasure.jpa.identity.service.impl.ActorServiceImpl;
-import com.forwardmeasure.jpa.liquibase.TenantSchemaMigrator;
+import com.forwardmeasure.jpa.identity.service.ActorService;
+import com.forwardmeasure.jpa.tenancy.FunctionalSchema;
+import com.forwardmeasure.jpa.tenancy.TenantDatabase;
 import com.forwardmeasure.jpa.tenancy.TenantId;
-import com.forwardmeasure.jpa.tenancy.TenantSchema;
-import com.forwardmeasure.jpa.tenancy.ThreadBoundTenantScope;
-import com.forwardmeasure.testcontainers.junit.postgresql.WithPostgreSqlContainer;
+import com.forwardmeasure.jpa.tenancy.TenantScope;
+import com.forwardmeasure.testcontainers.postgresql.PostgreSqlContainerConfiguration;
 import com.forwardmeasure.testcontainers.postgresql.PostgreSqlTestContainer;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
-import jakarta.persistence.Persistence;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.persistence.autoconfigure.EntityScan;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.support.TransactionTemplate;
 
-@WithPostgreSqlContainer(databaseName = "agent_os_spring_actor_binding_contract")
+// Real @SpringBootTest boot (not a hand-wired EntityManagerFactory) - proves
+// SpringAgentActorResolver
+// actually routes through real Hibernate multi-tenancy (SpringSchemaConnectionProvider, wired by
+// ForwardMeasureJpaAutoConfiguration, reading TenantScope) the same way a real request would, not
+// just that the resolver's own open/close bookkeeping works against a schema hand-pinned to the
+// right place regardless of what TenantScope carries.
+@SpringBootTest(classes = SpringAgentActorResolverPostgreSqlIntegrationTest.TestApplication.class)
 class SpringAgentActorResolverPostgreSqlIntegrationTest {
 
   private static final String CLIENT_ID = "agent-os";
+
+  private static final TenantDatabase TENANT_DATABASE =
+      TenantDatabase.forAlias("agentosspringtest");
+  private static final FunctionalSchema SCHEMA = FunctionalSchema.AGENT_OS;
+
+  private static final PostgreSqlTestContainer DATABASE =
+      new PostgreSqlTestContainer(
+              new PostgreSqlContainerConfiguration(
+                  PostgreSqlContainerConfiguration.DEFAULT_IMAGE,
+                  TENANT_DATABASE.value(),
+                  "forwardmeasure",
+                  "forwardmeasure-test-only",
+                  Optional.empty(),
+                  List.of(),
+                  PostgreSqlContainerConfiguration.DEFAULT_MEMORY_BYTES,
+                  PostgreSqlContainerConfiguration.DEFAULT_MEMORY_SWAP_BYTES))
+          .start();
+
+  static {
+    DATABASE.createSchema(SCHEMA.schemaName());
+    new LiquibaseMigrationEngine(
+            SpringAgentActorResolverPostgreSqlIntegrationTest.class.getClassLoader())
+        .migrate(
+            new MigrationRequest(
+                DATABASE.dataSource(),
+                DatabaseTarget.schema(SCHEMA.schemaName()),
+                MigrationPlan.liquibase(
+                    "forwardmeasure-jpa", "db/changelog/forwardmeasure-jpa.xml")));
+  }
+
+  @DynamicPropertySource
+  static void databaseProperties(DynamicPropertyRegistry properties) {
+    properties.add("spring.datasource.url", DATABASE::hostJdbcUrl);
+    properties.add("spring.datasource.username", DATABASE::username);
+    properties.add("spring.datasource.password", DATABASE::password);
+    properties.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+    properties.add("spring.jpa.hibernate.ddl-auto", () -> "none");
+    properties.add("spring.jpa.open-in-view", () -> "false");
+    properties.add("forwardmeasure.jpa.functional-schema", SCHEMA::name);
+    properties.add("forwardmeasure.jpa.tenant-database.host", DATABASE::host);
+    properties.add(
+        "forwardmeasure.jpa.tenant-database.port", () -> String.valueOf(DATABASE.mappedPort()));
+    properties.add("forwardmeasure.jpa.tenant-database.username", DATABASE::username);
+    properties.add("forwardmeasure.jpa.tenant-database.password", DATABASE::password);
+  }
+
+  @Autowired TenantScope tenantScope;
+
+  @Autowired TransactionTemplate transactions;
+
+  @Autowired ActorRepository actorRepository;
+
+  @Autowired ActorService actorService;
 
   @AfterEach
   void clearSecurityContext() {
     SecurityContextHolder.clearContext();
   }
 
-  @Test
-  void resolvesTheAgentActorForAProvisionedSubject(PostgreSqlTestContainer database) {
-    TenantId tenantId = new TenantId(UUID.randomUUID());
-    TenantSchema tenant = prepare(database, tenantId);
-    try (EntityManagerFactory entityManagers = entityManagers(database, tenant)) {
-      String subject = "keycloak-subject-" + UUID.randomUUID();
-      provisionActor(entityManagers, subject);
-
-      SpringAgentActorResolver resolver = resolver(entityManagers);
-      SecurityContextHolder.getContext().setAuthentication(jwtAuthentication(tenantId, subject));
-
-      AgentActor resolved = resolver.withActor(actor -> actor);
-
-      assertEquals(subject, resolved.actor().subject());
-      assertEquals(tenantId.value(), resolved.tenantId());
-    }
+  @AfterAll
+  static void stopDatabase() {
+    DATABASE.close();
   }
 
   @Test
-  void failsClosedWhenNoActorIsProvisionedForTheSubject(PostgreSqlTestContainer database) {
+  void resolvesTheAgentActorForAProvisionedSubject() {
+    String subject = "keycloak-subject-" + UUID.randomUUID();
+    provisionActor(subject);
     TenantId tenantId = new TenantId(UUID.randomUUID());
-    TenantSchema tenant = prepare(database, tenantId);
-    try (EntityManagerFactory entityManagers = entityManagers(database, tenant)) {
-      SpringAgentActorResolver resolver = resolver(entityManagers);
-      SecurityContextHolder.getContext()
-          .setAuthentication(jwtAuthentication(tenantId, "unknown-subject"));
 
-      assertThrows(SecurityException.class, () -> resolver.withActor(actor -> actor));
-    }
+    SpringAgentActorResolver resolver = resolver();
+    SecurityContextHolder.getContext().setAuthentication(jwtAuthentication(tenantId, subject));
+
+    AgentActor resolved = resolver.withActor(actor -> actor);
+
+    assertEquals(subject, resolved.actor().subject());
+    assertEquals(tenantId.value(), resolved.tenantId());
   }
 
   @Test
-  void failsClosedWhenNoJwtIsAuthenticated(PostgreSqlTestContainer database) {
-    TenantId tenantId = new TenantId(UUID.randomUUID());
-    TenantSchema tenant = prepare(database, tenantId);
-    try (EntityManagerFactory entityManagers = entityManagers(database, tenant)) {
-      SpringAgentActorResolver resolver = resolver(entityManagers);
-      // No SecurityContextHolder authentication set at all.
-      assertThrows(SecurityException.class, () -> resolver.withActor(actor -> actor));
-    }
+  void failsClosedWhenNoActorIsProvisionedForTheSubject() {
+    SpringAgentActorResolver resolver = resolver();
+    SecurityContextHolder.getContext()
+        .setAuthentication(jwtAuthentication(new TenantId(UUID.randomUUID()), "unknown-subject"));
+
+    assertThrows(SecurityException.class, () -> resolver.withActor(actor -> actor));
   }
 
   @Test
-  void closesTheTenantScopeEvenWhenTheCallerThrows(PostgreSqlTestContainer database) {
-    TenantId tenantId = new TenantId(UUID.randomUUID());
-    TenantSchema tenant = prepare(database, tenantId);
-    try (EntityManagerFactory entityManagers = entityManagers(database, tenant)) {
-      String subject = "keycloak-subject-" + UUID.randomUUID();
-      provisionActor(entityManagers, subject);
-      SpringAgentActorResolver resolver = resolver(entityManagers);
-      SecurityContextHolder.getContext().setAuthentication(jwtAuthentication(tenantId, subject));
-
-      ThreadBoundTenantScope tenants = sharedTenants;
-      assertTrue(tenants.current().isEmpty());
-      java.util.function.Function<AgentActor, Void> throwing =
-          actor -> {
-            throw new IllegalStateException("caller failure");
-          };
-      assertThrows(IllegalStateException.class, () -> resolver.withActor(throwing));
-      assertTrue(tenants.current().isEmpty(), "the tenant scope must be closed after the throw");
-    }
+  void failsClosedWhenNoJwtIsAuthenticated() {
+    SpringAgentActorResolver resolver = resolver();
+    // No SecurityContextHolder authentication set at all.
+    assertThrows(SecurityException.class, () -> resolver.withActor(actor -> actor));
   }
 
-  private ThreadBoundTenantScope sharedTenants;
+  @Test
+  void closesTheTenantScopeEvenWhenTheCallerThrows() {
+    String subject = "keycloak-subject-" + UUID.randomUUID();
+    provisionActor(subject);
+    SpringAgentActorResolver resolver = resolver();
+    SecurityContextHolder.getContext()
+        .setAuthentication(jwtAuthentication(new TenantId(UUID.randomUUID()), subject));
 
-  private SpringAgentActorResolver resolver(EntityManagerFactory entityManagers) {
-    sharedTenants = new ThreadBoundTenantScope();
-    ActorRepository actorRepository = new ActorRepository();
-    // A fresh EntityManager per resolver call would be more realistic (request-scoped in a real
-    // app), but a single one bound outside any transaction is enough to prove the resolution
-    // logic itself; TenantScope.call opens/closes around each withActor invocation regardless.
-    EntityManager entityManager = entityManagers.createEntityManager();
-    actorRepository.bindPersistenceContext(entityManager);
-    return new SpringAgentActorResolver(
-        new ActorServiceImpl(actorRepository), sharedTenants, CLIENT_ID);
+    assertTrue(tenantScope.current().isEmpty());
+    Function<AgentActor, Void> throwing =
+        actor -> {
+          throw new IllegalStateException("caller failure");
+        };
+    assertThrows(IllegalStateException.class, () -> resolver.withActor(throwing));
+    assertTrue(tenantScope.current().isEmpty(), "the tenant scope must be closed after the throw");
   }
 
-  private void provisionActor(EntityManagerFactory entityManagers, String subject) {
-    EntityManager entityManager = entityManagers.createEntityManager();
-    var transaction = entityManager.getTransaction();
-    try {
-      transaction.begin();
-      ActorRepository actors = new ActorRepository();
-      actors.bindPersistenceContext(entityManager);
-      actors.persist(
-          Actor.builder()
-              .subjectIdentifier(subject)
-              .identityProvider("keycloak")
-              .type(IdentityType.HUMAN)
-              .build());
-      transaction.commit();
-    } finally {
-      entityManager.close();
+  private SpringAgentActorResolver resolver() {
+    return new SpringAgentActorResolver(actorService, tenantScope, CLIENT_ID);
+  }
+
+  private void provisionActor(String subject) {
+    try (TenantScope.Scope ignored = tenantScope.open(TENANT_DATABASE)) {
+      transactions.executeWithoutResult(
+          status ->
+              actorRepository.persist(
+                  Actor.builder()
+                      .subjectIdentifier(subject)
+                      .identityProvider("keycloak")
+                      .type(IdentityType.HUMAN)
+                      .build()));
     }
   }
 
   private JwtAuthenticationToken jwtAuthentication(TenantId tenantId, String subject) {
+    // The organization claim's map key IS the alias TenantDatabase.forAlias(...) derives from -
+    // must match TENANT_DATABASE's own alias exactly, since this test proves real routing, not a
+    // schema hand-pinned regardless of what the JWT says.
     Jwt jwt =
         Jwt.withTokenValue("test-token")
             .header("alg", "none")
@@ -153,7 +202,7 @@ class SpringAgentActorResolverPostgreSqlIntegrationTest {
             .claim(
                 "organization",
                 Map.of(
-                    "acme",
+                    TENANT_DATABASE.alias(),
                     Map.of(
                         "id", "org-" + UUID.randomUUID(),
                         "forwardmeasure.tenant-id", tenantId.value().toString(),
@@ -163,29 +212,8 @@ class SpringAgentActorResolverPostgreSqlIntegrationTest {
     return new JwtAuthenticationToken(jwt);
   }
 
-  private TenantSchema prepare(PostgreSqlTestContainer database, TenantId tenantId) {
-    TenantSchema tenant = TenantSchema.forTenant(tenantId);
-    database.createSchema(tenant.value());
-    TenantSchemaMigrator migrator =
-        new TenantSchemaMigrator(
-            database.dataSource(),
-            "db/changelog/agent-os-spring-actor-binding-test.xml",
-            getClass().getClassLoader());
-    assertTrue(migrator.validate(tenant).valid());
-    migrator.migrate(tenant);
-    assertTrue(migrator.status(tenant).current());
-    return tenant;
-  }
-
-  private EntityManagerFactory entityManagers(
-      PostgreSqlTestContainer database, TenantSchema tenant) {
-    return Persistence.createEntityManagerFactory(
-        "agent-os-spring-actor-binding-test",
-        Map.of(
-            "jakarta.persistence.jdbc.url", database.hostJdbcUrl(),
-            "jakarta.persistence.jdbc.user", database.username(),
-            "jakarta.persistence.jdbc.password", database.password(),
-            "jakarta.persistence.jdbc.driver", "org.postgresql.Driver",
-            "hibernate.default_schema", tenant.value()));
-  }
+  @SpringBootConfiguration
+  @EnableAutoConfiguration
+  @EntityScan(basePackageClasses = Actor.class)
+  static class TestApplication {}
 }

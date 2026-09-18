@@ -23,7 +23,7 @@
     <parent>
         <groupId>com.forwardmeasure.platform</groupId>
         <artifactId>forwardmeasure-platform</artifactId>
-        <version>1.0.0</version>
+        <version>1.1.0</version>
         <relativePath>../forwardmeasure-platform/pom.xml</relativePath>
     </parent>
 
@@ -57,11 +57,17 @@
     </issueManagement>
 
     <properties>
-        <revision>1.0.0-SNAPSHOT</revision>
-        <forwardmeasure.platform.version>1.0.0</forwardmeasure.platform.version>
-        <forwardmeasure.jpa.version>1.0.0</forwardmeasure.jpa.version>
-        <forwardmeasure.testcontainers.version>1.0.0</forwardmeasure.testcontainers.version>
-
+        <revision>1.1.0</revision>
+        <!-- forwardmeasure.platform.version/forwardmeasure.jpa.version/forwardmeasure.testcontainers.version
+             deliberately NOT redefined here (2026-09-16 cleanup) - this module's own <parent> IS
+             forwardmeasure-platform, which already defines all three in its own <properties>, so
+             plain Maven inheritance already supplies the correct values to every submodule that
+             references them. A prior local redefinition here had drifted stale (pinning
+             forwardmeasure-platform at 1.0.0 and forwardmeasure-testcontainers at 1.0.0 long after
+             both moved to 1.1.0) without any build failure surfacing it, since both old and new
+             versions happened to still resolve - a real, confirmed regression risk this duplication
+             creates with no offsetting benefit. Removed rather than re-synced, so this exact class
+             of drift can't recur. -->
         <container-image.build>false</container-image.build>
         <container-image.push>false</container-image.push>
         <container-image.registry>docker.io</container-image.registry>
@@ -73,10 +79,21 @@
         <swagger-annotations.version>1.6.16</swagger-annotations.version>
         <a2a-java-sdk.version>1.1.0.Final</a2a-java-sdk.version>
         <mcp-java-sdk.version>2.0.0</mcp-java-sdk.version>
-        <forwardmeasure.openworkflow.version>1.0.0-SNAPSHOT</forwardmeasure.openworkflow.version>
+        <!-- forwardmeasure.openworkflow.version also deliberately NOT redefined here (2026-09-16
+             cleanup, same reasoning as the three properties removed above) - forwardmeasure-platform
+             already pins it to 1.1.0, a real, resolvable artifact (unlike this module's own former
+             local override of 1.0.0-SNAPSHOT, which was NEVER actually resolvable in this
+             environment either - its .m2 folder held only a dated resolver-status.properties failure
+             record, no real .pom, already broken as of 2026-09-11, unrelated to anything here).
+             Inheriting 1.1.0 is a strict improvement, though a genuine, separate, still-open gap
+             remains: agent-os-openworkflow-client's own source
+             (OpenWorkflowExecutionDispatcher/OpenWorkflowWorkflowReleaseResolver, referencing
+             com.forwardmeasure.openworkflow.authorization.authzen.BearerTokenSupplier) doesn't
+             compile against 1.1.0's real API - that module's own code hasn't tracked openworkflow's
+             API evolution, and needs real source changes to fix, out of scope here. -->
         <!-- forwardmeasure-decision-engine's own root revision - agent-os-policy-drools depends on
              its published decision-engine-api-language-bindings-java-grpc artifact only. -->
-        <forwardmeasure.decisionengine.version>1.0.0-SNAPSHOT</forwardmeasure.decisionengine.version>
+        <forwardmeasure.decisionengine.version>1.1.0</forwardmeasure.decisionengine.version>
         <micrometer.version>1.17.0</micrometer.version>
 
         <apache.rat.version>0.17</apache.rat.version>
@@ -119,6 +136,18 @@
             <groupId>com.forwardmeasure.jpa</groupId>
             <artifactId>forwardmeasure-jpa-bom</artifactId>
             <version>${forwardmeasure.jpa.version}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+        <!-- Needed so agent-os-database-migrations can depend on openworkflow-migrations without
+             pinning its own version - forwardmeasure.openworkflow.version already resolves (inherited
+             from forwardmeasure-platform, confirmed real/resolvable per this file's own comment
+             above), this was just never imported as a BOM the way forwardmeasure-entity-
+             intelligence's own root pom already does for the identical reuse. -->
+        <dependency>
+            <groupId>com.forwardmeasure.openworkflow</groupId>
+            <artifactId>openworkflow-bom</artifactId>
+            <version>${forwardmeasure.openworkflow.version}</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>

@@ -48,6 +48,36 @@
             <artifactId>forwardmeasure-jpa-liquibase</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.forwardmeasure.jpa</groupId>
+            <artifactId>forwardmeasure-jpa-datasource</artifactId>
+        </dependency>
+        <dependency>
+            <!-- Real, compile-scope dependency (not test-only): AgentOsTenantMigrator
+                 (src/main/java) reuses this artifact's own OpenWorkflowTenantMigrator as a
+                 library for real database-per-tenant provisioning - the same reuse
+                 OpenWorkflowTenantMigrator's own javadoc documents for forwardmeasure-entity-
+                 intelligence and forwardmeasure-decision-engine, rather than a second, parallel
+                 tenant-provisioning implementation.
+
+                 Exclusions mirror forwardmeasure-entity-intelligence-migrations' own pom exactly:
+                 openworkflow-migrations also drives Cassandra migrations that this module never
+                 touches (only the Postgres/Liquibase side), and excluding the Cassandra driver at
+                 the root removes duplicate-finder conflicts (commons-logging, httpclient5) it would
+                 otherwise drag in. -->
+            <groupId>com.forwardmeasure.openworkflow</groupId>
+            <artifactId>openworkflow-migrations</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.cassandra</groupId>
+                    <artifactId>java-driver-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.httpcomponents.client5</groupId>
+                    <artifactId>httpclient5</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>

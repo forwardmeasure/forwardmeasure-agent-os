@@ -21,7 +21,7 @@ import java.util.UUID;
 // tenantId is a raw UUID, not forwardmeasure-jpa-tenancy's TenantId - that type is technology-
 // free (a plain UUID wrapper, no JPA/Hibernate dependency of its own) but still lives under the
 // com.forwardmeasure.jpa.. package agent-os-domain's ArchUnit rule blocks by name. The
-// actor-binding modules wrap this value into TenantId/TenantSchema where they actually need
+// actor-binding modules wrap this value into TenantId/TenantDatabase where they actually need
 // that behavior, at the point they open the persistence layer's TenantScope.
 public record AgentActor(ActorReference actor, UUID tenantId) {
 

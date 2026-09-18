@@ -87,6 +87,43 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-oidc</artifactId>
         </dependency>
+        <!-- Real @QuarkusTest boot for QuarkusAgentActorResolverPostgreSqlIntegrationTest - proves
+             the resolver's TenantScope.call(...) actually routes through real Hibernate multi-
+             tenancy (QuarkusTenantConnectionResolver), not just that it compiles - same real set
+             forwardmeasure-jpa-quarkus's own QuarkusJpaContractTest already proves out. -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-hibernate-orm</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-agroal</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-jdbc-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-narayana-jta</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Required for src/test/resources/application.yaml to be read at all - Quarkus only
+             parses application.properties without this extension on the classpath, and silently
+             ignores a plain application.yaml otherwise (found live: build-time config like
+             quarkus.hibernate-orm.mapping.format.global fell back to its strict default and the
+             test boot failed). Mirrors every real agent-os Quarkus deployment's own pom.xml. -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-config-yaml</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>

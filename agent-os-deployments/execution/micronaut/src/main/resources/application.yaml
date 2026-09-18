@@ -48,6 +48,16 @@ jpa:
         - com.forwardmeasure.jpa.identity.entity
         - com.forwardmeasure.agentos.governance.jpa.entity
         - com.forwardmeasure.agentos.execution.jpa.entity
+# Real multi-tenant JPA bootstrap (ForwardMeasureJpaFactory, from forwardmeasure-jpa-micronaut):
+# database-per-tenant, schema-per-product.
+forwardmeasure:
+  jpa:
+    functional-schema: agent_os
+    tenant-database:
+      host: ${AGENT_OS_DATABASE_HOST:localhost}
+      port: ${AGENT_OS_DATABASE_PORT:5432}
+      username: ${AGENT_OS_DATABASE_USERNAME:agent_os}
+      password: ${AGENT_OS_DATABASE_PASSWORD:agent_os}
 agent-os:
   security:
     client-id: ${AGENT_OS_CLIENT_ID:agent-os}
