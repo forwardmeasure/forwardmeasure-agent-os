@@ -16,13 +16,13 @@ import com.forwardmeasure.agentos.domain.WorkflowExecutionDispatcher;
 import com.forwardmeasure.agentos.domain.WorkflowReleaseBinding;
 import com.forwardmeasure.agentos.execution.api.model.AgentExecutionHistoryEntry;
 import com.forwardmeasure.authzen.client.BearerTokenSupplier;
-import com.forwardmeasure.openworkflow.execution.api.model.Execution;
-import com.forwardmeasure.openworkflow.execution.api.model.ExecutionControl;
-import com.forwardmeasure.openworkflow.execution.api.model.ExecutionHistoryEntry;
-import com.forwardmeasure.openworkflow.execution.api.model.ExecutionStart;
+import com.forwardmeasure.openworkflow.execution.api.model.WorkflowExecution;
+import com.forwardmeasure.openworkflow.execution.api.model.WorkflowExecutionControl;
+import com.forwardmeasure.openworkflow.execution.api.model.WorkflowExecutionHistoryEntry;
+import com.forwardmeasure.openworkflow.execution.api.model.WorkflowExecutionStart;
 import com.forwardmeasure.openworkflow.execution.client.ApiClient;
 import com.forwardmeasure.openworkflow.execution.client.ApiException;
-import com.forwardmeasure.openworkflow.execution.client.api.ExecutionsApi;
+import com.forwardmeasure.openworkflow.execution.client.api.WorkflowExecutionsApi;
 import java.net.URI;
 import java.util.List;
 import java.util.Objects;
@@ -30,7 +30,8 @@ import java.util.UUID;
 
 // Wraps OpenWorkflow's generated public execution-management ApacheHttp client behind
 // agent-os-domain's WorkflowExecutionDispatcher port. Every operation is a real, synchronous call
-// (verified against OpenWorkflow's own generated ExecutionsApi, which returns Execution directly,
+// (verified against OpenWorkflow's own generated WorkflowExecutionsApi, which returns
+// WorkflowExecution directly,
 // not a queued acknowledgement) - no polling, no outbox. Authenticates the same way
 // OpenWorkflowWorkflowReleaseResolver does: agent-os's own service identity via OAuth2
 // client-credentials, not the end user's own bearer token - see that class's own doc comment for
@@ -51,13 +52,15 @@ public final class OpenWorkflowExecutionDispatcher implements WorkflowExecutionD
     Objects.requireNonNull(binding, "binding");
     return call(
         api ->
-            api.startExecution(
-                idempotencyKey, correlationId, new ExecutionStart(binding.revisionId(), input)));
+            api.startWorkflowExecution(
+                idempotencyKey,
+                correlationId,
+                new WorkflowExecutionStart(binding.revisionId(), input)));
   }
 
   @Override
   public OpenWorkflowExecutionSnapshot get(UUID openWorkflowExecutionId) {
-    return call(api -> api.getExecution(openWorkflowExecutionId));
+    return call(api -> api.getWorkflowExecution(openWorkflowExecutionId));
   }
 
   @Override
@@ -68,11 +71,11 @@ public final class OpenWorkflowExecutionDispatcher implements WorkflowExecutionD
       String reason) {
     return call(
         api ->
-            api.pauseExecution(
+            api.pauseWorkflowExecution(
                 etag(openWorkflowRevision),
                 correlationId,
                 openWorkflowExecutionId,
-                new ExecutionControl().reason(reason)));
+                new WorkflowExecutionControl().reason(reason)));
   }
 
   @Override
@@ -83,11 +86,11 @@ public final class OpenWorkflowExecutionDispatcher implements WorkflowExecutionD
       String reason) {
     return call(
         api ->
-            api.resumeExecution(
+            api.resumeWorkflowExecution(
                 etag(openWorkflowRevision),
                 correlationId,
                 openWorkflowExecutionId,
-                new ExecutionControl().reason(reason)));
+                new WorkflowExecutionControl().reason(reason)));
   }
 
   @Override
@@ -98,20 +101,20 @@ public final class OpenWorkflowExecutionDispatcher implements WorkflowExecutionD
       String reason) {
     return call(
         api ->
-            api.cancelExecution(
+            api.cancelWorkflowExecution(
                 etag(openWorkflowRevision),
                 correlationId,
                 openWorkflowExecutionId,
-                new ExecutionControl().reason(reason)));
+                new WorkflowExecutionControl().reason(reason)));
   }
 
   @Override
   public List<AgentExecutionHistoryEntry> history(
       UUID openWorkflowExecutionId, long afterSequence, int limit) {
-    ExecutionsApi api = api();
+    WorkflowExecutionsApi api = api();
     try {
       return api
-          .getExecutionHistory(openWorkflowExecutionId, afterSequence, limit)
+          .getWorkflowExecutionHistory(openWorkflowExecutionId, afterSequence, limit)
           .getItems()
           .stream()
           .map(OpenWorkflowExecutionDispatcher::toWireHistoryEntry)
@@ -124,7 +127,7 @@ public final class OpenWorkflowExecutionDispatcher implements WorkflowExecutionD
 
   @FunctionalInterface
   private interface ExecutionCall {
-    Execution invoke(ExecutionsApi api) throws ApiException;
+    WorkflowExecution invoke(WorkflowExecutionsApi api) throws ApiException;
   }
 
   private OpenWorkflowExecutionSnapshot call(ExecutionCall call) {
@@ -136,17 +139,17 @@ public final class OpenWorkflowExecutionDispatcher implements WorkflowExecutionD
     }
   }
 
-  private ExecutionsApi api() {
+  private WorkflowExecutionsApi api() {
     ApiClient client =
         new ApiClient().setBasePath(endpoint.toString()).setBearerToken(tokens.bearerToken());
-    return new ExecutionsApi(client);
+    return new WorkflowExecutionsApi(client);
   }
 
   private static String etag(long revision) {
     return "\"" + revision + "\"";
   }
 
-  private static OpenWorkflowExecutionSnapshot toSnapshot(Execution execution) {
+  private static OpenWorkflowExecutionSnapshot toSnapshot(WorkflowExecution execution) {
     return new OpenWorkflowExecutionSnapshot(
         execution.getId(),
         execution.getVersion(),
@@ -156,7 +159,8 @@ public final class OpenWorkflowExecutionDispatcher implements WorkflowExecutionD
         execution.getError() == null ? null : String.valueOf(execution.getError()));
   }
 
-  private static AgentExecutionHistoryEntry toWireHistoryEntry(ExecutionHistoryEntry entry) {
+  private static AgentExecutionHistoryEntry toWireHistoryEntry(
+      WorkflowExecutionHistoryEntry entry) {
     var wire =
         new AgentExecutionHistoryEntry(
             entry.getEventId(),
@@ -168,12 +172,12 @@ public final class OpenWorkflowExecutionDispatcher implements WorkflowExecutionD
     return wire;
   }
 
-  // Collapses OpenWorkflow's nine-value ExecutionState into agent-os's own six - see
+  // Collapses OpenWorkflow's nine-value WorkflowExecutionState into agent-os's own six - see
   // AgentExecutionState's own doc comment for the reasoning: an in-flight transient state
   // (WAITING/PAUSING/CANCELLING) is reported as whichever state it's transitioning away from,
   // since acknowledgement of a command means the transition is durable, not that it has completed.
   private static AgentExecutionState toDomainState(
-      com.forwardmeasure.openworkflow.execution.api.model.ExecutionState state) {
+      com.forwardmeasure.openworkflow.execution.api.model.WorkflowExecutionState state) {
     return switch (state) {
       case NEW -> AgentExecutionState.SUBMITTED;
       case RUNNING, WAITING, PAUSING, CANCELLING -> AgentExecutionState.RUNNING;
