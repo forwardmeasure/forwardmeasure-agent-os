@@ -63,6 +63,9 @@ class SpringAgentActorResolverPostgreSqlIntegrationTest {
 
   private static final TenantDatabase TENANT_DATABASE =
       TenantDatabase.forAlias("agentosspringtest");
+  private static final com.forwardmeasure.jpa.tenancy.Did TENANT_DID =
+      com.forwardmeasure.jpa.tenancy.Did.parse("did:fwmtest:tenant:" + TENANT_DATABASE.alias());
+  private static final TenantId TENANT_ID = TenantId.forDid(TENANT_DID);
   private static final FunctionalSchema SCHEMA = FunctionalSchema.AGENT_OS;
 
   private static final PostgreSqlTestContainer DATABASE =
@@ -80,6 +83,9 @@ class SpringAgentActorResolverPostgreSqlIntegrationTest {
 
   static {
     DATABASE.createSchema(SCHEMA.schemaName());
+    var registry = new com.forwardmeasure.jpa.liquibase.TenantRegistry(DATABASE.dataSource());
+    registry.migrate();
+    registry.register(TENANT_DID, TENANT_DATABASE.alias(), TENANT_DATABASE);
     new LiquibaseMigrationEngine(
             SpringAgentActorResolverPostgreSqlIntegrationTest.class.getClassLoader())
         .migrate(
@@ -128,7 +134,7 @@ class SpringAgentActorResolverPostgreSqlIntegrationTest {
   void resolvesTheAgentActorForAProvisionedSubject() {
     String subject = "keycloak-subject-" + UUID.randomUUID();
     provisionActor(subject);
-    TenantId tenantId = new TenantId(UUID.randomUUID());
+    TenantId tenantId = TENANT_ID;
 
     SpringAgentActorResolver resolver = resolver();
     SecurityContextHolder.getContext().setAuthentication(jwtAuthentication(tenantId, subject));
@@ -143,7 +149,7 @@ class SpringAgentActorResolverPostgreSqlIntegrationTest {
   void failsClosedWhenNoActorIsProvisionedForTheSubject() {
     SpringAgentActorResolver resolver = resolver();
     SecurityContextHolder.getContext()
-        .setAuthentication(jwtAuthentication(new TenantId(UUID.randomUUID()), "unknown-subject"));
+        .setAuthentication(jwtAuthentication(TENANT_ID, "unknown-subject"));
 
     assertThrows(SecurityException.class, () -> resolver.withActor(actor -> actor));
   }
@@ -160,8 +166,7 @@ class SpringAgentActorResolverPostgreSqlIntegrationTest {
     String subject = "keycloak-subject-" + UUID.randomUUID();
     provisionActor(subject);
     SpringAgentActorResolver resolver = resolver();
-    SecurityContextHolder.getContext()
-        .setAuthentication(jwtAuthentication(new TenantId(UUID.randomUUID()), subject));
+    SecurityContextHolder.getContext().setAuthentication(jwtAuthentication(TENANT_ID, subject));
 
     assertTrue(tenantScope.current().isEmpty());
     Function<AgentActor, Void> throwing =
@@ -177,7 +182,7 @@ class SpringAgentActorResolverPostgreSqlIntegrationTest {
   }
 
   private void provisionActor(String subject) {
-    try (TenantScope.Scope ignored = tenantScope.open(TENANT_DATABASE)) {
+    try (TenantScope.Scope ignored = tenantScope.open(TENANT_ID)) {
       transactions.executeWithoutResult(
           status ->
               actorRepository.persist(
@@ -205,7 +210,7 @@ class SpringAgentActorResolverPostgreSqlIntegrationTest {
                     TENANT_DATABASE.alias(),
                     Map.of(
                         "id", "org-" + UUID.randomUUID(),
-                        "forwardmeasure.tenant-id", tenantId.value().toString(),
+                        "forwardmeasure.tenant-did", TENANT_DID.value(),
                         "resource_access",
                             Map.of(CLIENT_ID, Map.of("roles", java.util.List.of("member"))))))
             .build();

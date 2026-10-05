@@ -33,6 +33,10 @@ import java.util.Optional;
 public final class AgentOsQuarkusPostgreSqlResource implements QuarkusTestResourceLifecycleManager {
 
   static final TenantDatabase TENANT_DATABASE = TenantDatabase.forAlias("agentosquarkustest");
+  static final com.forwardmeasure.jpa.tenancy.Did TENANT_DID =
+      com.forwardmeasure.jpa.tenancy.Did.parse("did:fwmtest:tenant:" + TENANT_DATABASE.alias());
+  static final com.forwardmeasure.jpa.tenancy.TenantId TENANT_ID =
+      com.forwardmeasure.jpa.tenancy.TenantId.forDid(TENANT_DID);
   static final FunctionalSchema SCHEMA = FunctionalSchema.AGENT_OS;
 
   private PostgreSqlTestContainer database;
@@ -52,6 +56,9 @@ public final class AgentOsQuarkusPostgreSqlResource implements QuarkusTestResour
                     PostgreSqlContainerConfiguration.DEFAULT_MEMORY_SWAP_BYTES))
             .start();
     database.createSchema(SCHEMA.schemaName());
+    var registry = new com.forwardmeasure.jpa.liquibase.TenantRegistry(database.dataSource());
+    registry.migrate();
+    registry.register(TENANT_DID, TENANT_DATABASE.alias(), TENANT_DATABASE);
     new LiquibaseMigrationEngine(getClass().getClassLoader())
         .migrate(
             new MigrationRequest(

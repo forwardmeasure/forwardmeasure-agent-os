@@ -58,7 +58,7 @@ class QuarkusAgentActorResolverPostgreSqlIntegrationTest {
   void resolvesTheAgentActorForAProvisionedSubject() throws Exception {
     String subject = "keycloak-subject-" + UUID.randomUUID();
     provisionActor(subject);
-    TenantId tenantId = new TenantId(UUID.randomUUID());
+    TenantId tenantId = AgentOsQuarkusPostgreSqlResource.TENANT_ID;
 
     QuarkusAgentActorResolver resolver = resolver(rawToken(tenantId, subject));
 
@@ -71,7 +71,7 @@ class QuarkusAgentActorResolverPostgreSqlIntegrationTest {
   @Test
   void failsClosedWhenNoActorIsProvisionedForTheSubject() {
     QuarkusAgentActorResolver resolver =
-        resolver(rawToken(new TenantId(UUID.randomUUID()), "unknown-subject"));
+        resolver(rawToken(AgentOsQuarkusPostgreSqlResource.TENANT_ID, "unknown-subject"));
     assertThrows(SecurityException.class, () -> resolver.withActor(actor -> actor));
   }
 
@@ -88,7 +88,7 @@ class QuarkusAgentActorResolverPostgreSqlIntegrationTest {
     String subject = "keycloak-subject-" + UUID.randomUUID();
     provisionActor(subject);
     QuarkusAgentActorResolver resolver =
-        resolver(rawToken(new TenantId(UUID.randomUUID()), subject));
+        resolver(rawToken(AgentOsQuarkusPostgreSqlResource.TENANT_ID, subject));
 
     assertTrue(tenantScope.current().isEmpty());
     Function<AgentActor, Void> throwing =
@@ -106,7 +106,7 @@ class QuarkusAgentActorResolverPostgreSqlIntegrationTest {
 
   private void provisionActor(String subject) throws Exception {
     transaction.begin();
-    try (var ignored = tenantScope.open(AgentOsQuarkusPostgreSqlResource.TENANT_DATABASE)) {
+    try (var ignored = tenantScope.open(AgentOsQuarkusPostgreSqlResource.TENANT_ID)) {
       actorRepository.persist(
           Actor.builder()
               .subjectIdentifier(subject)
@@ -164,7 +164,8 @@ class QuarkusAgentActorResolverPostgreSqlIntegrationTest {
                   AgentOsQuarkusPostgreSqlResource.TENANT_DATABASE.alias(),
                   Map.of(
                       "id", "org-" + UUID.randomUUID(),
-                      "forwardmeasure.tenant-id", tenantId.value().toString(),
+                      "forwardmeasure.tenant-did",
+                          AgentOsQuarkusPostgreSqlResource.TENANT_DID.value(),
                       "resource_access",
                           Map.of(CLIENT_ID, Map.of("roles", java.util.List.of("member"))))));
       String payload = segment(claims);

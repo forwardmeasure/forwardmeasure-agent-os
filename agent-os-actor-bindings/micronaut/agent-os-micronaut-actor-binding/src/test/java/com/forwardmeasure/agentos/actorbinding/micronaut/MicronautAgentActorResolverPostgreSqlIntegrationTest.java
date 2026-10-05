@@ -60,6 +60,9 @@ class MicronautAgentActorResolverPostgreSqlIntegrationTest implements TestProper
 
   private static final TenantDatabase TENANT_DATABASE =
       TenantDatabase.forAlias("agentosmicronauttest");
+  private static final com.forwardmeasure.jpa.tenancy.Did TENANT_DID =
+      com.forwardmeasure.jpa.tenancy.Did.parse("did:fwmtest:tenant:" + TENANT_DATABASE.alias());
+  private static final TenantId TENANT_ID = TenantId.forDid(TENANT_DID);
   private static final FunctionalSchema SCHEMA = FunctionalSchema.AGENT_OS;
 
   private static final PostgreSqlTestContainer DATABASE =
@@ -89,6 +92,9 @@ class MicronautAgentActorResolverPostgreSqlIntegrationTest implements TestProper
     if (!initialized) {
       DATABASE.start();
       DATABASE.createSchema(SCHEMA.schemaName());
+      var registry = new com.forwardmeasure.jpa.liquibase.TenantRegistry(DATABASE.dataSource());
+      registry.migrate();
+      registry.register(TENANT_DID, TENANT_DATABASE.alias(), TENANT_DATABASE);
       new LiquibaseMigrationEngine(getClass().getClassLoader())
           .migrate(
               new MigrationRequest(
@@ -116,7 +122,7 @@ class MicronautAgentActorResolverPostgreSqlIntegrationTest implements TestProper
   void resolvesTheAgentActorForAProvisionedSubject() {
     String subject = "keycloak-subject-" + UUID.randomUUID();
     provisionActor(subject);
-    TenantId tenantId = new TenantId(UUID.randomUUID());
+    TenantId tenantId = TENANT_ID;
 
     MicronautAgentActorResolver resolver =
         resolver(fakeSecurity(authentication(tenantId, subject)));
@@ -130,7 +136,7 @@ class MicronautAgentActorResolverPostgreSqlIntegrationTest implements TestProper
   @Test
   void failsClosedWhenNoActorIsProvisionedForTheSubject() {
     MicronautAgentActorResolver resolver =
-        resolver(fakeSecurity(authentication(new TenantId(UUID.randomUUID()), "unknown-subject")));
+        resolver(fakeSecurity(authentication(TENANT_ID, "unknown-subject")));
     assertThrows(SecurityException.class, () -> resolver.withActor(actor -> actor));
   }
 
@@ -145,7 +151,7 @@ class MicronautAgentActorResolverPostgreSqlIntegrationTest implements TestProper
     String subject = "keycloak-subject-" + UUID.randomUUID();
     provisionActor(subject);
     MicronautAgentActorResolver resolver =
-        resolver(fakeSecurity(authentication(new TenantId(UUID.randomUUID()), subject)));
+        resolver(fakeSecurity(authentication(TENANT_ID, subject)));
 
     assertTrue(tenantScope.current().isEmpty());
     Function<AgentActor, Void> throwing =
@@ -161,7 +167,7 @@ class MicronautAgentActorResolverPostgreSqlIntegrationTest implements TestProper
   }
 
   private void provisionActor(String subject) {
-    try (TenantScope.Scope ignored = tenantScope.open(TENANT_DATABASE)) {
+    try (TenantScope.Scope ignored = tenantScope.open(TENANT_ID)) {
       transactions.executeWrite(
           status -> {
             actorRepository.persist(
@@ -215,7 +221,7 @@ class MicronautAgentActorResolverPostgreSqlIntegrationTest implements TestProper
                 TENANT_DATABASE.alias(),
                 Map.of(
                     "id", "org-" + UUID.randomUUID(),
-                    "forwardmeasure.tenant-id", tenantId.value().toString(),
+                    "forwardmeasure.tenant-did", TENANT_DID.value(),
                     "resource_access", Map.of(CLIENT_ID, Map.of("roles", List.of("member"))))));
     return new ServerAuthentication(subject, List.of(), attributes);
   }

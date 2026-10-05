@@ -62,7 +62,7 @@ public class SpringAgentActorResolver implements AgentActorResolver {
     ActiveOrganization organization =
         KeycloakOrganizationClaims.extract(jwtAuthentication.getToken().getClaims(), clientId);
     return tenants.call(
-        organization.tenantDatabase(),
+        organization.tenantId(),
         () -> {
           Actor actor =
               actors

@@ -71,7 +71,7 @@ public class MicronautAgentActorResolver implements AgentActorResolver {
     ActiveOrganization organization =
         KeycloakOrganizationClaims.extract(authentication.getAttributes(), clientId);
     return tenants.call(
-        organization.tenantDatabase(),
+        organization.tenantId(),
         () -> {
           Actor actor =
               actors

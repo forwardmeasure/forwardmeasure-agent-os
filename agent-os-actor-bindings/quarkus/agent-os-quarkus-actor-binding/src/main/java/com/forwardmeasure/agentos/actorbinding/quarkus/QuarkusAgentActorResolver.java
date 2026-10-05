@@ -73,7 +73,7 @@ public class QuarkusAgentActorResolver implements AgentActorResolver {
     Objects.requireNonNull(work, "work");
     ActiveOrganization organization = KeycloakOrganizationClaims.extract(rawClaims(), clientId);
     return tenants.call(
-        organization.tenantDatabase(),
+        organization.tenantId(),
         () -> {
           Actor actor =
               actors
