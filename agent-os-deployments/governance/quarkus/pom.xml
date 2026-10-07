@@ -35,6 +35,10 @@
     <description>Deployment assembly only - Dockerfile, application.yaml, the Quarkus build plugin, the container-image profile. All wiring lives in agent-os-governance-quarkus (agent-os-governance/framework-bindings/quarkus); this module owns no business logic of its own, mirroring openworkflow-definition-management-quarkus-service's split exactly.</description>
 
     <properties>
+    <!-- Build runtime/frontend assemblies fresh; cache reuse is reserved for libraries. -->
+    <maven.build.cache.skipCache>true</maven.build.cache.skipCache>
+    <maven.build.cache.skipSave>true</maven.build.cache.skipSave>
+
         <container-image.name>agent-os-governance-quarkus</container-image.name>
     </properties>
 

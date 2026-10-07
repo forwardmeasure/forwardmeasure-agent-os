@@ -42,7 +42,6 @@
         <dependency>
             <groupId>com.forwardmeasure.decisionengine</groupId>
             <artifactId>decision-engine-api-language-bindings-java-grpc</artifactId>
-            <version>${forwardmeasure.decisionengine.version}</version>
         </dependency>
         <dependency>
             <groupId>io.grpc</groupId>

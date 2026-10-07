@@ -35,6 +35,10 @@
     <description>Sole executable multi-tenant-schema migration runner used by deployment orchestration.</description>
 
     <properties>
+    <!-- Build runtime/frontend assemblies fresh; cache reuse is reserved for libraries. -->
+    <maven.build.cache.skipCache>true</maven.build.cache.skipCache>
+    <maven.build.cache.skipSave>true</maven.build.cache.skipSave>
+
         <container-image.name>agent-os-database-migration-service</container-image.name>
     </properties>
 
@@ -63,7 +67,6 @@
                  Micronaut leaves, which get it from forwardmeasure-platform-micronaut-bom) -
                  pinned to the same version already real and in use across this ecosystem
                  (confirmed via openworkflow-migrations' own effective pom). -->
-            <version>1.6.1</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>

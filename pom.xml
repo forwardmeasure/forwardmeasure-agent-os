@@ -57,7 +57,8 @@
     </issueManagement>
 
     <properties>
-        <revision>1.1.0</revision>
+    <!-- Project release identity is local for Maven CI-friendly reactor parent resolution. -->
+    <revision>1.1.0</revision>
         <!-- forwardmeasure.platform.version/forwardmeasure.jpa.version/forwardmeasure.testcontainers.version
              deliberately NOT redefined here (2026-09-16 cleanup) - this module's own <parent> IS
              forwardmeasure-platform, which already defines all three in its own <properties>, so
@@ -68,17 +69,7 @@
              versions happened to still resolve - a real, confirmed regression risk this duplication
              creates with no offsetting benefit. Removed rather than re-synced, so this exact class
              of drift can't recur. -->
-        <container-image.build>false</container-image.build>
-        <container-image.push>false</container-image.push>
-        <container-image.registry>docker.io</container-image.registry>
-        <container-image.group>forwardmeasure</container-image.group>
-        <container-image.tag>${project.version}</container-image.tag>
 
-        <archunit.version>1.4.1</archunit.version>
-        <json-schema-validator.version>2.0.4</json-schema-validator.version>
-        <swagger-annotations.version>1.6.16</swagger-annotations.version>
-        <a2a-java-sdk.version>1.1.0.Final</a2a-java-sdk.version>
-        <mcp-java-sdk.version>2.0.0</mcp-java-sdk.version>
         <!-- forwardmeasure.openworkflow.version also deliberately NOT redefined here (2026-09-16
              cleanup, same reasoning as the three properties removed above) - forwardmeasure-platform
              already pins it to 1.1.0, a real, resolvable artifact (unlike this module's own former
@@ -93,11 +84,8 @@
              API evolution, and needs real source changes to fix, out of scope here. -->
         <!-- forwardmeasure-decision-engine's own root revision - agent-os-policy-drools depends on
              its published decision-engine-api-language-bindings-java-grpc artifact only. -->
-        <forwardmeasure.decisionengine.version>1.1.0</forwardmeasure.decisionengine.version>
         <micrometer.version>1.17.0</micrometer.version>
 
-        <apache.rat.version>0.17</apache.rat.version>
-        <duplicate.finder.version>2.0.1</duplicate.finder.version>
     </properties>
 
     <!-- Product reactor: kept modules (ported from forwardmeasure-agents once this skeleton
@@ -157,46 +145,6 @@
             <version>${forwardmeasure.testcontainers.version}</version>
             <type>pom</type>
             <scope>import</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.tngtech.archunit</groupId>
-            <artifactId>archunit-junit5</artifactId>
-            <version>${archunit.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.networknt</groupId>
-            <artifactId>json-schema-validator</artifactId>
-            <version>${json-schema-validator.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.swagger</groupId>
-            <artifactId>swagger-annotations</artifactId>
-            <version>${swagger-annotations.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.a2aproject.sdk</groupId>
-            <artifactId>a2a-java-sdk-spec</artifactId>
-            <version>${a2a-java-sdk.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.a2aproject.sdk</groupId>
-            <artifactId>a2a-java-sdk-server-common</artifactId>
-            <version>${a2a-java-sdk.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.a2aproject.sdk</groupId>
-            <artifactId>a2a-java-sdk-transport-jsonrpc</artifactId>
-            <version>${a2a-java-sdk.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.modelcontextprotocol.sdk</groupId>
-            <artifactId>mcp-core</artifactId>
-            <version>${mcp-java-sdk.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.modelcontextprotocol.sdk</groupId>
-            <artifactId>mcp-json-jackson2</artifactId>
-            <version>${mcp-java-sdk.version}</version>
         </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
@@ -490,12 +438,10 @@
                 <plugin>
                     <groupId>org.apache.rat</groupId>
                     <artifactId>apache-rat-plugin</artifactId>
-                    <version>${apache.rat.version}</version>
                 </plugin>
                 <plugin>
                     <groupId>org.basepom.maven</groupId>
                     <artifactId>duplicate-finder-maven-plugin</artifactId>
-                    <version>${duplicate.finder.version}</version>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -551,7 +497,6 @@
         <profile>
             <id>container-image</id>
             <properties>
-                <container-image.build>true</container-image.build>
             </properties>
         </profile>
     </profiles>

@@ -35,6 +35,10 @@
     <description>Deployment assembly only - the Spring Boot main-class bootstrap, Dockerfile, application.yaml, the spring-boot-maven-plugin repackage, the container-image profile. All wiring lives in agent-os-policy-spring (agent-os-policy/framework-bindings/spring); this module owns no business logic of its own, mirroring openworkflow-definition-management-spring-service's split exactly.</description>
 
     <properties>
+    <!-- Build runtime/frontend assemblies fresh; cache reuse is reserved for libraries. -->
+    <maven.build.cache.skipCache>true</maven.build.cache.skipCache>
+    <maven.build.cache.skipSave>true</maven.build.cache.skipSave>
+
         <container-image.name>agent-os-policy-spring</container-image.name>
     </properties>
 

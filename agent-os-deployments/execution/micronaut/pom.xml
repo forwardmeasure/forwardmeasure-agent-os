@@ -35,6 +35,10 @@
     <description>Deployment assembly only - the Micronaut main-class bootstrap, Dockerfile, application.yaml, the ORM resource, the copy-dependencies/jar-plugin packaging, the container-image profile. All wiring lives in agent-os-execution-micronaut (agent-os-execution/framework-bindings/micronaut); this module owns no business logic of its own, mirroring openworkflow-definition-management-micronaut-service's split exactly.</description>
 
     <properties>
+    <!-- Build runtime/frontend assemblies fresh; cache reuse is reserved for libraries. -->
+    <maven.build.cache.skipCache>true</maven.build.cache.skipCache>
+    <maven.build.cache.skipSave>true</maven.build.cache.skipSave>
+
         <container-image.name>agent-os-execution-micronaut</container-image.name>
     </properties>
 
