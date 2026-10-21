@@ -22,9 +22,9 @@
 
     <parent>
         <groupId>com.forwardmeasure.agentos</groupId>
-        <artifactId>forwardmeasure-agent-os-parent</artifactId>
+        <artifactId>forwardmeasure-agent-os-micronaut-parent</artifactId>
         <version>${revision}</version>
-        <relativePath>../../../pom.xml</relativePath>
+        <relativePath>../../../parents/micronaut/pom.xml</relativePath>
     </parent>
 
     <groupId>com.forwardmeasure.agentos</groupId>
@@ -42,17 +42,6 @@
         <container-image.name>agent-os-governance-micronaut</container-image.name>
     </properties>
 
-    <dependencyManagement>
-        <dependencies>
-        <dependency>
-            <groupId>com.forwardmeasure.platform</groupId>
-            <artifactId>forwardmeasure-platform-micronaut-bom</artifactId>
-            <version>${forwardmeasure.platform.version}</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -62,6 +51,12 @@
         <dependency>
             <groupId>io.micronaut</groupId>
             <artifactId>micronaut-http-server-netty</artifactId>
+        </dependency>
+        <dependency>
+            <!-- /health for kubelet's probes (open in application.yaml's intercept-url-map), as
+                 Quarkus's /q/health and Spring's /actuator/health. -->
+            <groupId>io.micronaut</groupId>
+            <artifactId>micronaut-management</artifactId>
         </dependency>
         <dependency>
             <groupId>io.micronaut.serde</groupId>
@@ -85,6 +80,22 @@
             <groupId>io.micronaut</groupId>
             <artifactId>micronaut-inject-java</artifactId>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.micronaut.test</groupId>
+            <artifactId>micronaut-test-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <!-- The real Keycloak + PostgreSQL environment the HTTP security test boots against. -->
+            <groupId>${project.groupId}</groupId>
+            <artifactId>agent-os-test-fixtures</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -126,11 +137,11 @@
                     <archive>
                         <manifest>
                             <mainClass>com.forwardmeasure.agentos.governance.micronaut.AgentGovernanceMicronautApplication</mainClass>
-                            <addClasspath>true</addClasspath>
-                            <classpathPrefix>dependency/</classpathPrefix>
                         </manifest>
                     </archive>
                 </configuration>
+                <!-- The manifest Class-Path lives only on the runnable jar the image runs; the main jar is what other modules depend on, and a Class-Path there would pull every runtime dependency into their classpaths. -->
+                <executions><execution><id>runnable-jar</id><phase>package</phase><goals><goal>jar</goal></goals><configuration><classifier>runnable</classifier><archive><manifest><mainClass>com.forwardmeasure.agentos.governance.micronaut.AgentGovernanceMicronautApplication</mainClass><addClasspath>true</addClasspath><classpathPrefix>dependency/</classpathPrefix></manifest></archive></configuration></execution></executions>
             </plugin>
         </plugins>
     </build>
@@ -151,7 +162,7 @@
                                         <contextDir>${project.basedir}</contextDir>
                                         <dockerFile>src/main/docker/Dockerfile.jvm</dockerFile>
                                         <args>
-                                            <APPLICATION_JAR>target/${project.build.finalName}.jar</APPLICATION_JAR>
+                                            <APPLICATION_JAR>target/${project.build.finalName}-runnable.jar</APPLICATION_JAR>
                                             <DEPENDENCY_DIR>target/dependency</DEPENDENCY_DIR>
                                             <BASE_IMAGE>${container-image.base-jre}</BASE_IMAGE>
                                         </args>

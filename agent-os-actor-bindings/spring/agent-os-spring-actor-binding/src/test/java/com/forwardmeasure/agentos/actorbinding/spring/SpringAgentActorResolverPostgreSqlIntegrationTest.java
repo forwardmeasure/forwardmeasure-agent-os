@@ -15,14 +15,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.forwardmeasure.agentos.domain.AgentActor;
+import com.forwardmeasure.authzen.AuthenticationRequiredException;
+import com.forwardmeasure.authzen.AuthorizationDeniedException;
 import com.forwardmeasure.database.migration.api.DatabaseTarget;
 import com.forwardmeasure.database.migration.api.MigrationPlan;
 import com.forwardmeasure.database.migration.api.MigrationRequest;
 import com.forwardmeasure.database.migration.liquibase.LiquibaseMigrationEngine;
 import com.forwardmeasure.jpa.identity.entity.Actor;
-import com.forwardmeasure.jpa.identity.entity.IdentityType;
-import com.forwardmeasure.jpa.identity.repository.ActorRepository;
 import com.forwardmeasure.jpa.identity.service.ActorService;
+import com.forwardmeasure.jpa.liquibase.TenantIdentityMigrator;
 import com.forwardmeasure.jpa.tenancy.FunctionalSchema;
 import com.forwardmeasure.jpa.tenancy.TenantDatabase;
 import com.forwardmeasure.jpa.tenancy.TenantId;
@@ -48,7 +49,6 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.transaction.support.TransactionTemplate;
 
 // Real @SpringBootTest boot (not a hand-wired EntityManagerFactory) - proves
 // SpringAgentActorResolver
@@ -68,6 +68,11 @@ class SpringAgentActorResolverPostgreSqlIntegrationTest {
   private static final TenantId TENANT_ID = TenantId.forDid(TENANT_DID);
   private static final FunctionalSchema SCHEMA = FunctionalSchema.AGENT_OS;
 
+  // Seeded by agent-os-spring-actor-binding-test.xml: one actor with tenant access, one whose
+  // access was removed.
+  private static final String ENABLED_SUBJECT = "agent-os-enabled-subject";
+  private static final String DISABLED_SUBJECT = "agent-os-disabled-subject";
+
   private static final PostgreSqlTestContainer DATABASE =
       new PostgreSqlTestContainer(
               new PostgreSqlContainerConfiguration(
@@ -86,14 +91,19 @@ class SpringAgentActorResolverPostgreSqlIntegrationTest {
     var registry = new com.forwardmeasure.jpa.liquibase.TenantRegistry(DATABASE.dataSource());
     registry.migrate();
     registry.register(TENANT_DID, TENANT_DATABASE.alias(), TENANT_DATABASE);
-    new LiquibaseMigrationEngine(
-            SpringAgentActorResolverPostgreSqlIntegrationTest.class.getClassLoader())
+    // The tenant's shared identity schema (identity.actor) first, as tenant provisioning does,
+    // then this module's fixture changelog, which seeds the actors the tests authenticate as.
+    ClassLoader classLoader =
+        SpringAgentActorResolverPostgreSqlIntegrationTest.class.getClassLoader();
+    new TenantIdentityMigrator(DATABASE.dataSource(), classLoader).migrate();
+    new LiquibaseMigrationEngine(classLoader)
         .migrate(
             new MigrationRequest(
                 DATABASE.dataSource(),
                 DatabaseTarget.schema(SCHEMA.schemaName()),
                 MigrationPlan.liquibase(
-                    "forwardmeasure-jpa", "db/changelog/forwardmeasure-jpa.xml")));
+                    "agent-os-spring-actor-binding-test",
+                    "db/changelog/agent-os-spring-actor-binding-test.xml")));
   }
 
   @DynamicPropertySource
@@ -114,10 +124,6 @@ class SpringAgentActorResolverPostgreSqlIntegrationTest {
 
   @Autowired TenantScope tenantScope;
 
-  @Autowired TransactionTemplate transactions;
-
-  @Autowired ActorRepository actorRepository;
-
   @Autowired ActorService actorService;
 
   @AfterEach
@@ -132,41 +138,46 @@ class SpringAgentActorResolverPostgreSqlIntegrationTest {
 
   @Test
   void resolvesTheAgentActorForAProvisionedSubject() {
-    String subject = "keycloak-subject-" + UUID.randomUUID();
-    provisionActor(subject);
-    TenantId tenantId = TENANT_ID;
-
     SpringAgentActorResolver resolver = resolver();
-    SecurityContextHolder.getContext().setAuthentication(jwtAuthentication(tenantId, subject));
+    SecurityContextHolder.getContext()
+        .setAuthentication(jwtAuthentication(TENANT_ID, ENABLED_SUBJECT));
 
     AgentActor resolved = resolver.withActor(actor -> actor);
 
-    assertEquals(subject, resolved.actor().subject());
-    assertEquals(tenantId.value(), resolved.tenantId());
+    assertEquals(ENABLED_SUBJECT, resolved.actor().subject());
+    assertEquals(TENANT_ID.value(), resolved.tenantId());
   }
 
   @Test
-  void failsClosedWhenNoActorIsProvisionedForTheSubject() {
+  void deniesASubjectWithNoProvisionedActor() {
     SpringAgentActorResolver resolver = resolver();
     SecurityContextHolder.getContext()
         .setAuthentication(jwtAuthentication(TENANT_ID, "unknown-subject"));
 
-    assertThrows(SecurityException.class, () -> resolver.withActor(actor -> actor));
+    assertThrows(AuthorizationDeniedException.class, () -> resolver.withActor(actor -> actor));
   }
 
   @Test
-  void failsClosedWhenNoJwtIsAuthenticated() {
+  void deniesADisabledActor() {
+    SpringAgentActorResolver resolver = resolver();
+    SecurityContextHolder.getContext()
+        .setAuthentication(jwtAuthentication(TENANT_ID, DISABLED_SUBJECT));
+
+    assertThrows(AuthorizationDeniedException.class, () -> resolver.withActor(actor -> actor));
+  }
+
+  @Test
+  void requiresAuthenticationWhenNoJwtIsPresent() {
     SpringAgentActorResolver resolver = resolver();
     // No SecurityContextHolder authentication set at all.
-    assertThrows(SecurityException.class, () -> resolver.withActor(actor -> actor));
+    assertThrows(AuthenticationRequiredException.class, () -> resolver.withActor(actor -> actor));
   }
 
   @Test
   void closesTheTenantScopeEvenWhenTheCallerThrows() {
-    String subject = "keycloak-subject-" + UUID.randomUUID();
-    provisionActor(subject);
     SpringAgentActorResolver resolver = resolver();
-    SecurityContextHolder.getContext().setAuthentication(jwtAuthentication(TENANT_ID, subject));
+    SecurityContextHolder.getContext()
+        .setAuthentication(jwtAuthentication(TENANT_ID, ENABLED_SUBJECT));
 
     assertTrue(tenantScope.current().isEmpty());
     Function<AgentActor, Void> throwing =
@@ -179,19 +190,6 @@ class SpringAgentActorResolverPostgreSqlIntegrationTest {
 
   private SpringAgentActorResolver resolver() {
     return new SpringAgentActorResolver(actorService, tenantScope, CLIENT_ID);
-  }
-
-  private void provisionActor(String subject) {
-    try (TenantScope.Scope ignored = tenantScope.open(TENANT_ID)) {
-      transactions.executeWithoutResult(
-          status ->
-              actorRepository.persist(
-                  Actor.builder()
-                      .subjectIdentifier(subject)
-                      .identityProvider("keycloak")
-                      .type(IdentityType.HUMAN)
-                      .build()));
-    }
   }
 
   private JwtAuthenticationToken jwtAuthentication(TenantId tenantId, String subject) {

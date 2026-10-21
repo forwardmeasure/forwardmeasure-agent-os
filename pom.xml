@@ -91,6 +91,10 @@
     <!-- Product reactor: kept modules (ported from forwardmeasure-agents once this skeleton
     is approved) sit alongside newly-designed ones per docs/implementation-plan.md. -->
     <modules>
+        <module>parents/micronaut</module>
+        <module>parents/spring</module>
+        <module>parents/quarkus</module>
+        <module>parents/neutral</module>
         <module>agent-os-domain</module>
         <module>agent-os-schema-validation</module>
         <module>agent-os-api-specifications</module>
@@ -105,6 +109,7 @@
         <module>agent-os-policy</module>
         <module>agent-os-database-migrations</module>
         <module>agent-os-database-migration-service</module>
+        <module>agent-os-test-fixtures</module>
         <module>agent-os-studio</module>
         <module>agent-os-deployments</module>
         <module>agent-os-architecture-tests</module>
@@ -363,6 +368,11 @@
         </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
+            <artifactId>agent-os-test-fixtures</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
             <artifactId>agent-os-studio-runtime</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -407,7 +417,12 @@
                         <compilerArgs>
                             <arg>-Xlint:all,-processing</arg>
                         </compilerArgs>
-                        <annotationProcessorPaths>
+                        <!-- Processor paths without a <version> (hibernate-processor) follow the module's managed
+                             version, so each framework's modules generate with that framework's Hibernate. -->
+                        <annotationProcessorPathsUseDepMgmt>true</annotationProcessorPathsUseDepMgmt>
+                        <!-- combine.self=override: replace the platform parent's list instead of merging it entry by entry,
+                             which would hand the versionless hibernate-processor the version of the parent's entry at the same position. -->
+                        <annotationProcessorPaths combine.self="override">
                             <path>
                                 <groupId>org.projectlombok</groupId>
                                 <artifactId>lombok</artifactId>
@@ -426,7 +441,6 @@
                             <path>
                                 <groupId>org.hibernate.orm</groupId>
                                 <artifactId>hibernate-processor</artifactId>
-                                <version>${hibernate.version}</version>
                             </path>
                         </annotationProcessorPaths>
                     </configuration>

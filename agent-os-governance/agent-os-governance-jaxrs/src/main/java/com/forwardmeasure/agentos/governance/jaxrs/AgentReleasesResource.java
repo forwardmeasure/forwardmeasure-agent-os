@@ -15,12 +15,18 @@ import com.forwardmeasure.agentos.domain.AgentCoordinates;
 import com.forwardmeasure.agentos.governance.api.AgentReleasesApi;
 import com.forwardmeasure.agentos.governance.api.model.AgentReleasePage;
 import com.forwardmeasure.agentos.governance.application.AgentGovernanceService;
+import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response;
 import java.util.Objects;
 
 // Discovery-facing, read-only: no ETag/If-Match here, matching the real spec (neither operation
 // declares an If-Match header or a 412 response) - execution reads this same governance data
 // directly, per AgentReleasesApi's own description.
+// Class-level @Path repeated from AgentReleasesApi: Jersey's ResourceConfig.register(Object)
+// (Spring's
+// registration path) only treats an instance as a root resource when its own class carries @Path -
+// without it every route 404s on Spring. Mirrors forwardmeasure-openworkflow's resources.
+@Path("/v1/agent-releases")
 public class AgentReleasesResource implements AgentReleasesApi {
 
   private final AgentGovernanceService governance;

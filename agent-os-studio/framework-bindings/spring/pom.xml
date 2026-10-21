@@ -22,9 +22,9 @@
 
     <parent>
         <groupId>com.forwardmeasure.agentos</groupId>
-        <artifactId>agent-os-studio-framework-bindings</artifactId>
+        <artifactId>forwardmeasure-agent-os-spring-parent</artifactId>
         <version>${revision}</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath>../../../parents/spring/pom.xml</relativePath>
     </parent>
 
     <groupId>com.forwardmeasure.agentos</groupId>
@@ -34,17 +34,6 @@
     <name>ForwardMeasure Agent OS :: Studio :: Spring</name>
     <description>Spring hosting for the dashboard runtime-configuration resource.</description>
 
-    <dependencyManagement>
-        <dependencies>
-        <dependency>
-            <groupId>com.forwardmeasure.platform</groupId>
-            <artifactId>forwardmeasure-platform-spring-bom</artifactId>
-            <version>${forwardmeasure.platform.version}</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <dependencies>
         <dependency>

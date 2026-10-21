@@ -22,9 +22,9 @@
 
     <parent>
         <groupId>com.forwardmeasure.agentos</groupId>
-        <artifactId>agent-os-execution</artifactId>
+        <artifactId>forwardmeasure-agent-os-neutral-parent</artifactId>
         <version>${revision}</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath>../../parents/neutral/pom.xml</relativePath>
     </parent>
 
     <groupId>com.forwardmeasure.agentos</groupId>
@@ -35,6 +35,12 @@
     <description>Neutral JAX-RS resource classes for execution, hosted identically by all three framework bindings.</description>
 
     <dependencies>
+        <dependency>
+            <!-- AuthenticationRequiredException/AuthorizationDeniedException, which this module's
+                 exception mapper answers as 401/403 problems. -->
+            <groupId>com.forwardmeasure.authzen</groupId>
+            <artifactId>forwardmeasure-authzen-api</artifactId>
+        </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>agent-os-execution-application</artifactId>

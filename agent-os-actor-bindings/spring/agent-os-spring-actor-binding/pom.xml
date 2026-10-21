@@ -22,9 +22,9 @@
 
     <parent>
         <groupId>com.forwardmeasure.agentos</groupId>
-        <artifactId>agent-os-actor-bindings-spring</artifactId>
+        <artifactId>forwardmeasure-agent-os-spring-parent</artifactId>
         <version>${revision}</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath>../../../parents/spring/pom.xml</relativePath>
     </parent>
 
     <groupId>com.forwardmeasure.agentos</groupId>
@@ -34,24 +34,6 @@
     <name>ForwardMeasure Agent OS :: Actor Bindings :: Spring :: Binding</name>
     <description>Shared Spring claims-resolution/authentication and JPA-tenancy wiring, reused by every hosted vertical - not reimplemented per service.</description>
 
-    <dependencyManagement>
-        <dependencies>
-        <dependency>
-            <groupId>com.forwardmeasure.platform</groupId>
-            <artifactId>forwardmeasure-platform-spring-bom</artifactId>
-            <version>${forwardmeasure.platform.version}</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.forwardmeasure.openworkflow</groupId>
-            <artifactId>openworkflow-bom</artifactId>
-            <version>${forwardmeasure.openworkflow.version}</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -86,6 +68,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+        <dependency>
+            <!-- ProblemAuthenticationEntryPoint/ProblemAccessDeniedHandler: 401/403 as the same
+                 RFC 9457 problem Quarkus and Micronaut return (AgentOsSpringSecurityConfiguration). -->
+            <groupId>com.forwardmeasure.platform</groupId>
+            <artifactId>forwardmeasure-platform-spring-security</artifactId>
         </dependency>
         <!-- Real @SpringBootTest boot for SpringAgentActorResolverPostgreSqlIntegrationTest -
              proves the resolver's TenantScope.call(...) actually routes through real Hibernate

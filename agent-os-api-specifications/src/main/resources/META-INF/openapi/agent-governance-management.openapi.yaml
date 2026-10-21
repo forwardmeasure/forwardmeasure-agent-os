@@ -988,6 +988,49 @@ components:
           description: Presentation hints keyed by field name.
           additionalProperties:
             $ref: '#/components/schemas/AgentA2uiFieldPresentation'
+    AgentPromptProfile:
+      type: object
+      additionalProperties: false
+      description: >
+        A governed prompt profile the agent runs, selected at invocation by the request
+        mandate. The instruction text and the model/behaviour parameters are governed content -
+        versioned, reviewed and published with the rest of the agent definition, and hashed into
+        the agent's definition digest. The serving endpoint and its credentials are deploy
+        configuration, not governed here.
+      required: [key, model, systemPrompt]
+      properties:
+        key:
+          type: string
+          minLength: 1
+          maxLength: 160
+          description: >
+            Profile selector, matched by the invocation mandate (e.g. "aml-kyc", "general-entity").
+        description:
+          type: string
+          nullable: true
+        model:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Model identifier the agent reasons with (part of governed behaviour), e.g. claude-opus-5-5.
+        systemPrompt:
+          type: string
+          minLength: 1
+          description: The governed system instruction.
+        userTemplate:
+          type: string
+          nullable: true
+          description: Optional user-message template; the agent fills its placeholders at invocation.
+        temperature:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 2
+          nullable: true
+        responseFormat:
+          type: object
+          nullable: true
+          description: Optional OpenAI-compatible response_format object, e.g. {"type":"json_object"}.
     AgentDefinitionContent:
       type: object
       additionalProperties: false
@@ -1021,6 +1064,13 @@ components:
           $ref: '#/components/schemas/AgentProtocols'
         a2uiPresentation:
           $ref: '#/components/schemas/AgentA2uiPresentation'
+        prompts:
+          type: array
+          description: >
+            Governed prompt profiles this agent runs, selected at invocation by the request
+            mandate. Optional - an agent that performs no model reasoning declares none.
+          items:
+            $ref: '#/components/schemas/AgentPromptProfile'
         publicUri:
           type: string
           format: uri

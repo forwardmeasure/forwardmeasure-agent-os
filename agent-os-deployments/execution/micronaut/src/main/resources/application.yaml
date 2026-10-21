@@ -15,20 +15,54 @@ micronaut:
     name: agent-os-execution-micronaut
   server:
     host: 0.0.0.0
+  serde:
+    serialization:
+      # Every field written, nulls and empty collections included - Jackson's default on Quarkus and
+      # Spring (the generated models declare no @JsonInclude). Serde's own default, NON_EMPTY, omits
+      # both.
+      inclusion: ALWAYS
   security:
     enabled: true
     authentication: bearer
+    # A request that matches no route is a 404 problem, as on Quarkus and Spring - not Micronaut
+    # security's own 403/401 for an unmatched route.
+    reject-not-found: false
+    # SecuredAnnotationRule never fires for a route registered through micronaut-jaxrs-server's
+    # bridge, so the policy is explicit here. Health is open (kubelet's probes send no token);
+    # every other path needs a verified token - Spring's anyRequest().authenticated(), Quarkus's
+    # /* permission. First match wins, so the catch-all stays last.
+    intercept-url-map:
+      - pattern: "/health"
+        access:
+          - isAnonymous()
+      - pattern: "/health/**"
+        access:
+          - isAnonymous()
+      - pattern: "/**"
+        access:
+          - isAuthenticated()
     token:
       jwt:
+        claims-validators:
+          issuer: ${AGENT_OS_KEYCLOAK_ISSUER:`http://localhost:8080/realms/agent-os`}
         signatures:
           jwks:
             keycloak:
               url: ${AGENT_OS_KEYCLOAK_ISSUER:`http://localhost:8080/realms/agent-os`}/protocol/openid-connect/certs
+endpoints:
+  all:
+    enabled: false
+  health:
+    enabled: true
+    sensitive: false
+# The default datasource is the platform's control-plane database (tenant_registry), never a
+# tenant's: each request's tenant database is resolved there, then reached through
+# forwardmeasure.jpa.tenant-database below. Both as agent-os's runtime role.
 datasources:
   default:
-    url: ${AGENT_OS_DATABASE_URL:`jdbc:postgresql://localhost:5432/agent_os`}
-    username: ${AGENT_OS_DATABASE_USERNAME:agent_os}
-    password: ${AGENT_OS_DATABASE_PASSWORD:agent_os}
+    url: ${AGENT_OS_CONTROL_PLANE_DATABASE_URL:`jdbc:postgresql://localhost:5432/forwardmeasure_control_plane`}
+    username: ${AGENT_OS_RUNTIME_DATABASE_USERNAME:agent_os}
+    password: ${AGENT_OS_RUNTIME_DATABASE_PASSWORD:agent_os}
     driver-class-name: org.postgresql.Driver
 jpa:
   default:
@@ -54,10 +88,10 @@ forwardmeasure:
   jpa:
     functional-schema: agent_os
     tenant-database:
-      host: ${AGENT_OS_DATABASE_HOST:localhost}
-      port: ${AGENT_OS_DATABASE_PORT:5432}
-      username: ${AGENT_OS_DATABASE_USERNAME:agent_os}
-      password: ${AGENT_OS_DATABASE_PASSWORD:agent_os}
+      host: ${AGENT_OS_TENANT_DATABASE_HOST:localhost}
+      port: ${AGENT_OS_TENANT_DATABASE_PORT:5432}
+      username: ${AGENT_OS_RUNTIME_DATABASE_USERNAME:agent_os}
+      password: ${AGENT_OS_RUNTIME_DATABASE_PASSWORD:agent_os}
 agent-os:
   security:
     client-id: ${AGENT_OS_CLIENT_ID:agent-os}

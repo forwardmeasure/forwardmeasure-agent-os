@@ -14,6 +14,7 @@ import com.forwardmeasure.agentos.domain.AgentActorResolver;
 import com.forwardmeasure.agentos.domain.PolicyEvaluator;
 import com.forwardmeasure.agentos.policy.api.PolicyEvaluationsApi;
 import com.forwardmeasure.agentos.policy.api.model.PolicyEvaluationRequest;
+import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response;
 import java.util.Objects;
 
@@ -22,6 +23,11 @@ import java.util.Objects;
 // AgentExecution, PolicyEvaluationRequest/Result carry no independent domain behavior, so the
 // generated wire type IS the PolicyEvaluator port's own request/response type (see PolicyEvaluator
 // itself). This resource's only job is resolving the authenticated actor and delegating.
+// Class-level @Path repeated from PolicyEvaluationsApi: Jersey's ResourceConfig.register(Object)
+// (Spring's
+// registration path) only treats an instance as a root resource when its own class carries @Path -
+// without it every route 404s on Spring. Mirrors forwardmeasure-openworkflow's resources.
+@Path("/v1/policy-evaluations")
 public class PolicyEvaluationsResource implements PolicyEvaluationsApi {
 
   private final PolicyEvaluator policyEvaluator;

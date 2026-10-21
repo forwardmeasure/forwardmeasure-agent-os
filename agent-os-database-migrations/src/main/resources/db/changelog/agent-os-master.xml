@@ -15,17 +15,15 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<!-- Mirrors openworkflow-master.xml's own real shape exactly: forwardmeasure-jpa's own base
-     changelog (the actor table every vertical's owner/reviewer FKs point at) first, then each
-     vertical's own changelog, in dependency order. Not a duplicate of either - this is the one
-     root changelog TenantSchemaMigrator is pointed at for a real tenant schema; each vertical's
-     own agent-os-{governance,execution}-jpa.xml stays the thing that module's own tests migrate
-     in isolation. -->
+<!-- The one root changelog AgentOsTenantMigrator applies into the tenant database's agent_os
+     schema: each vertical's own changelog, in dependency order. Actors are not created here -
+     they live in the tenant database's shared identity schema (identity.actor), which tenant
+     provisioning migrates with TenantIdentityMigrator before this changelog runs; the verticals'
+     owner/reviewer foreign keys reference it across schemas. -->
 <databaseChangeLog
     xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
-    <include file="db/changelog/forwardmeasure-jpa.xml" />
     <include file="db/changelog/agent-os-governance-jpa.xml" />
     <include file="db/changelog/agent-os-execution-jpa.xml" />
 </databaseChangeLog>

@@ -22,9 +22,9 @@
 
     <parent>
         <groupId>com.forwardmeasure.agentos</groupId>
-        <artifactId>agent-os-actor-bindings-micronaut</artifactId>
+        <artifactId>forwardmeasure-agent-os-micronaut-parent</artifactId>
         <version>${revision}</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath>../../../parents/micronaut/pom.xml</relativePath>
     </parent>
 
     <groupId>com.forwardmeasure.agentos</groupId>
@@ -34,24 +34,6 @@
     <name>ForwardMeasure Agent OS :: Actor Bindings :: Micronaut :: Binding</name>
     <description>Shared Micronaut claims-resolution/authentication and JPA-tenancy wiring, reused by every hosted vertical - not reimplemented per service.</description>
 
-    <dependencyManagement>
-        <dependencies>
-        <dependency>
-            <groupId>com.forwardmeasure.platform</groupId>
-            <artifactId>forwardmeasure-platform-micronaut-bom</artifactId>
-            <version>${forwardmeasure.platform.version}</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.forwardmeasure.openworkflow</groupId>
-            <artifactId>openworkflow-bom</artifactId>
-            <version>${forwardmeasure.openworkflow.version}</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -90,6 +72,22 @@
         <dependency>
             <groupId>io.micronaut.jaxrs</groupId>
             <artifactId>micronaut-jaxrs-server-security</artifactId>
+        </dependency>
+        <dependency>
+            <!-- Micronaut's half of the shared RFC 9457 contract, reaching every agent-os Micronaut
+                 service through this binding: MicronautAuthorizationProblemHandler answers a request
+                 Micronaut security turns away (no token, a token that fails validation, a denied
+                 caller) as the same 401/403 problem Quarkus and Spring return;
+                 MicronautInvalidBearerTokenRule rejects an invalid token even on an open path; the
+                 request body is read with Jackson like Quarkus/Spring; binding, validation and
+                 conversion failures become problems. MicronautPlatformProblemIntrospection gives the
+                 platform Problem these return its Serde coverage. -->
+            <groupId>com.forwardmeasure.platform</groupId>
+            <artifactId>forwardmeasure-platform-micronaut-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micronaut.serde</groupId>
+            <artifactId>micronaut-serde-jackson</artifactId>
         </dependency>
         <!-- Needed for @MicronautTest's own generated bean definition to exist at all ("no bean
              definition for the test present") - forwardmeasure-jpa-micronaut's own pom carries
@@ -169,6 +167,10 @@
                         <path>
                             <groupId>io.micronaut.data</groupId>
                             <artifactId>micronaut-data-processor</artifactId>
+                        </path>
+                        <path>
+                            <groupId>io.micronaut.serde</groupId>
+                            <artifactId>micronaut-serde-processor</artifactId>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>

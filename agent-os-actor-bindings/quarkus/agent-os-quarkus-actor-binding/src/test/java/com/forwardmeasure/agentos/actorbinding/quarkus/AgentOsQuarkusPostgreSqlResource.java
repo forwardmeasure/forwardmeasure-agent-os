@@ -14,6 +14,7 @@ import com.forwardmeasure.database.migration.api.DatabaseTarget;
 import com.forwardmeasure.database.migration.api.MigrationPlan;
 import com.forwardmeasure.database.migration.api.MigrationRequest;
 import com.forwardmeasure.database.migration.liquibase.LiquibaseMigrationEngine;
+import com.forwardmeasure.jpa.liquibase.TenantIdentityMigrator;
 import com.forwardmeasure.jpa.tenancy.FunctionalSchema;
 import com.forwardmeasure.jpa.tenancy.TenantDatabase;
 import com.forwardmeasure.testcontainers.postgresql.PostgreSqlContainerConfiguration;
@@ -24,13 +25,18 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Real Postgres testcontainer, real {@code forwardmeasure-jpa} base changelog (owns {@code actor},
- * the only table {@link QuarkusAgentActorResolverPostgreSqlIntegrationTest} needs) applied into
- * agent-os's own {@link FunctionalSchema#AGENT_OS} functional schema - mirrors {@code
- * forwardmeasure-jpa-quarkus}'s own real {@code QuarkusPostgreSqlResource} exactly, just against
- * agent-os's own functional schema instead of a generic contract-test one.
+ * Real Postgres testcontainer with the tenant database's shared identity schema ({@code
+ * identity.actor}, the only table {@link QuarkusAgentActorResolverPostgreSqlIntegrationTest} needs)
+ * migrated by {@link TenantIdentityMigrator}, fixture actors seeded by this module's test
+ * changelog, and agent-os's own {@link FunctionalSchema#AGENT_OS} schema as the functional schema.
  */
 public final class AgentOsQuarkusPostgreSqlResource implements QuarkusTestResourceLifecycleManager {
+
+  /** Seeded by agent-os-quarkus-actor-binding-test.xml with tenant access. */
+  static final String ENABLED_SUBJECT = "agent-os-enabled-subject";
+
+  /** Seeded by agent-os-quarkus-actor-binding-test.xml with its tenant access removed. */
+  static final String DISABLED_SUBJECT = "agent-os-disabled-subject";
 
   static final TenantDatabase TENANT_DATABASE = TenantDatabase.forAlias("agentosquarkustest");
   static final com.forwardmeasure.jpa.tenancy.Did TENANT_DID =
@@ -59,13 +65,17 @@ public final class AgentOsQuarkusPostgreSqlResource implements QuarkusTestResour
     var registry = new com.forwardmeasure.jpa.liquibase.TenantRegistry(database.dataSource());
     registry.migrate();
     registry.register(TENANT_DID, TENANT_DATABASE.alias(), TENANT_DATABASE);
+    // The tenant's shared identity schema (identity.actor) first, as tenant provisioning does,
+    // then this module's fixture changelog, which seeds the actors the tests authenticate as.
+    new TenantIdentityMigrator(database.dataSource(), getClass().getClassLoader()).migrate();
     new LiquibaseMigrationEngine(getClass().getClassLoader())
         .migrate(
             new MigrationRequest(
                 database.dataSource(),
                 DatabaseTarget.schema(SCHEMA.schemaName()),
                 MigrationPlan.liquibase(
-                    "forwardmeasure-jpa", "db/changelog/forwardmeasure-jpa.xml")));
+                    "agent-os-quarkus-actor-binding-test",
+                    "db/changelog/agent-os-quarkus-actor-binding-test.xml")));
     return Map.of(
         "quarkus.datasource.jdbc.url", database.hostJdbcUrl(),
         "quarkus.datasource.username", database.username(),

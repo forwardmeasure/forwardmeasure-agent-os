@@ -21,7 +21,24 @@
     logicalFilePath="db/changelog/agent-os-execution-jpa-test.xml"
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
-    <include file="db/changelog/forwardmeasure-jpa.xml" />
     <include file="db/changelog/agent-os-governance-jpa.xml" />
     <include file="db/changelog/agent-os-execution-jpa.xml" />
+
+    <!-- Test fixture: the actors these tests act as, seeded into the tenant database's shared
+         identity schema (migrated by TenantIdentityMigrator before this changelog), the way
+         tenant-access provisioning would have provisioned them. -->
+    <changeSet id="agent-os-execution-jpa-test-fixture-001-actors" author="forwardmeasure">
+        <insert schemaName="identity" tableName="actor">
+            <column name="uuid" value="00000000-0000-0000-0000-00000000a001" />
+            <column name="identity_provider" value="test" />
+            <column name="subject_identifier" value="owner" />
+            <column name="identity_type" value="HUMAN" />
+        </insert>
+        <insert schemaName="identity" tableName="actor">
+            <column name="uuid" value="00000000-0000-0000-0000-00000000a002" />
+            <column name="identity_provider" value="test" />
+            <column name="subject_identifier" value="reviewer" />
+            <column name="identity_type" value="HUMAN" />
+        </insert>
+    </changeSet>
 </databaseChangeLog>

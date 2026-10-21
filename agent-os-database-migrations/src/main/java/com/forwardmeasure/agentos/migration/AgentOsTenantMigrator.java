@@ -54,9 +54,22 @@ public final class AgentOsTenantMigrator {
   }
 
   /**
-   * Creates the tenant's own database if absent, creates agent-os's own functional schema within
-   * it, migrates it, then grants the runtime role access - idempotent, safe to call redundantly
-   * alongside another product's migration Job provisioning the same tenant database concurrently.
+   * Lets the runtime role read the control-plane database's {@code tenant_registry} (creating the
+   * registry table first if no other product's Job has yet). Every agent-os service resolves each
+   * request's tenant database there as the runtime role; without this grant the first request fails
+   * with "permission denied for table tenant_registry". Idempotent; must run after {@link
+   * #ensureRuntimeRole(String)}.
+   */
+  public void grantTenantRegistryRead() {
+    delegate.grantTenantRegistryRead();
+  }
+
+  /**
+   * Creates the tenant's own database if absent, migrates the tenant's shared identity schema
+   * ({@code identity.actor}, which agent-os's owner/reviewer foreign keys reference) and grants the
+   * runtime role read access to it, creates agent-os's own functional schema, migrates it, then
+   * grants the runtime role access - idempotent, safe to call redundantly alongside another
+   * product's migration Job provisioning the same tenant database concurrently.
    */
   public MigrationResult provisionAndMigrate(TenantDatabase database) {
     return delegate.provisionAndMigrate(database);

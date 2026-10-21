@@ -15,7 +15,9 @@ import com.forwardmeasure.agentos.domain.AgentActorResolver;
 import com.forwardmeasure.agentos.domain.PolicyEvaluator;
 import com.forwardmeasure.agentos.policy.drools.DroolsPolicyEvaluator;
 import com.forwardmeasure.agentos.policy.jaxrs.PolicyEvaluationsResource;
+import com.forwardmeasure.agentos.policy.jaxrs.PolicyExceptionMapper;
 import com.forwardmeasure.agentos.policy.opa.OpaPolicyEvaluator;
+import com.forwardmeasure.platform.server.jaxrs.RequestProblemsFeature;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.time.Duration;
@@ -24,9 +26,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.jersey.autoconfigure.ResourceConfigCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
 
 // Spring composition for the policy vertical - see agent-os-execution-spring's own
 // AgentExecutionSpringBinding for the shared shape. No persistence-wiring beans of policy's own -
@@ -83,14 +82,13 @@ public class AgentPolicySpringBinding {
 
   @Bean
   ResourceConfigCustomizer policyResourceConfigCustomizer(PolicyEvaluationsResource resource) {
-    return resourceConfig -> resourceConfig.register(resource);
-  }
-
-  @Bean
-  SecurityFilterChain agentPolicySecurity(HttpSecurity http) throws Exception {
-    return http.csrf(csrf -> csrf.disable())
-        .authorizeHttpRequests(requests -> requests.anyRequest().authenticated())
-        .oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()))
-        .build();
+    return resourceConfig ->
+        resourceConfig
+            .register(resource)
+            // Every failure as this service's own RFC 9457 problem (401/403 included), and the
+            // shared request-contract mappers Quarkus/Micronaut pick up on their own. Spring Boot's
+            // Jersey only sees providers registered explicitly.
+            .register(new PolicyExceptionMapper())
+            .register(RequestProblemsFeature.class);
   }
 }

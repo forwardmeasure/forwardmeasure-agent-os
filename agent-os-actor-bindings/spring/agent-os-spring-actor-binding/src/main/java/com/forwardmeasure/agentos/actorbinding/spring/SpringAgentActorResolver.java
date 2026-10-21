@@ -15,11 +15,16 @@ import com.forwardmeasure.agentos.domain.ActorType;
 import com.forwardmeasure.agentos.domain.AgentActor;
 import com.forwardmeasure.agentos.domain.AgentActorResolver;
 import com.forwardmeasure.authzen.ActiveOrganization;
+import com.forwardmeasure.authzen.AuthenticationRequiredException;
+import com.forwardmeasure.authzen.AuthorizationDeniedException;
 import com.forwardmeasure.authzen.KeycloakOrganizationClaims;
 import com.forwardmeasure.jpa.identity.entity.Actor;
 import com.forwardmeasure.jpa.identity.service.ActorService;
 import com.forwardmeasure.jpa.tenancy.TenantScope;
+import java.lang.System.Logger;
+import java.lang.System.Logger.Level;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Function;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
@@ -38,6 +43,7 @@ public class SpringAgentActorResolver implements AgentActorResolver {
   // The sole identity provider throughout this ecosystem - every JWT is Keycloak-issued, per
   // common-definitions.yaml's own BearerAuth description.
   private static final String IDENTITY_PROVIDER = "keycloak";
+  private static final Logger LOG = System.getLogger(SpringAgentActorResolver.class.getName());
 
   private final ActorService actors;
   private final TenantScope tenants;
@@ -57,7 +63,8 @@ public class SpringAgentActorResolver implements AgentActorResolver {
     Objects.requireNonNull(work, "work");
     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
     if (!(authentication instanceof JwtAuthenticationToken jwtAuthentication)) {
-      throw new SecurityException("No authenticated JWT principal for the current request");
+      throw new AuthenticationRequiredException(
+          "No authenticated JWT principal for the current request");
     }
     ActiveOrganization organization =
         KeycloakOrganizationClaims.extract(jwtAuthentication.getToken().getClaims(), clientId);
@@ -66,13 +73,25 @@ public class SpringAgentActorResolver implements AgentActorResolver {
         () -> {
           Actor actor =
               actors
-                  .findByIdentity(IDENTITY_PROVIDER, organization.actorId())
-                  .orElseThrow(
-                      () ->
-                          new SecurityException(
-                              "No Actor is provisioned for subject " + organization.actorId()));
+                  .findEnabledByIdentity(IDENTITY_PROVIDER, organization.actorId())
+                  .orElseThrow(() -> noTenantAccess(organization));
           return work.apply(toAgentActor(actor, organization));
         });
+  }
+
+  // Unknown or disabled actor: the caller is authenticated (a verified token for a member of the
+  // tenant's Organization) but has no tenant access here - 403, never 401 and never a created
+  // actor. Actors are provisioned when tenant access is granted and disabled when it is removed.
+  // The response carries only a correlation id; the reason is logged under it.
+  private static AuthorizationDeniedException noTenantAccess(ActiveOrganization organization) {
+    String correlationId = UUID.randomUUID().toString();
+    LOG.log(
+        Level.WARNING,
+        "No enabled actor for subject {0} in tenant {1}; correlationId={2}",
+        organization.actorId(),
+        organization.tenantId().value(),
+        correlationId);
+    return new AuthorizationDeniedException(correlationId);
   }
 
   private static AgentActor toAgentActor(Actor actor, ActiveOrganization organization) {

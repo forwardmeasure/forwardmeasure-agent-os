@@ -13,6 +13,10 @@ package com.forwardmeasure.agentos.policy.jaxrs;
 import com.forwardmeasure.agentos.domain.PolicyEvaluationUnavailableException;
 import com.forwardmeasure.agentos.domain.PolicyNotFoundException;
 import com.forwardmeasure.agentos.policy.api.model.Problem;
+import com.forwardmeasure.authzen.AuthenticationRequiredException;
+import com.forwardmeasure.authzen.AuthorizationDeniedException;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
@@ -22,6 +26,8 @@ import java.lang.System.Logger.Level;
 // Mirrors agent-os-execution-jaxrs's own ExecutionExceptionMapper shape exactly.
 // PolicyEvaluationUnavailableException maps to 503, not 500 - the policy engine being unreachable
 // is an operational condition the caller should retry, not a defect in this service.
+// Not final: Micronaut hosts it through a @Singleton subclass compiled with
+// micronaut-jaxrs-processor; Spring registers it explicitly in its ResourceConfig.
 @Provider
 public class PolicyExceptionMapper implements ExceptionMapper<RuntimeException> {
 
@@ -29,6 +35,26 @@ public class PolicyExceptionMapper implements ExceptionMapper<RuntimeException> 
 
   @Override
   public Response toResponse(RuntimeException exception) {
+    if (exception instanceof AuthenticationRequiredException) {
+      // No resolvable caller: a missing/invalid JWT or one without exactly one active
+      // Organization (KeycloakOrganizationClaims.extract). The same challenge the HTTP layer
+      // sends for a request with no token at all.
+      return problem(401, "Unauthorized", exception.getMessage())
+          .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
+          .build();
+    }
+    if (exception instanceof AuthorizationDeniedException) {
+      // An authenticated caller without tenant access here (no enabled actor) - the detail
+      // carries only the correlation id the reason was logged under.
+      return problem(403, "Forbidden", exception.getMessage()).build();
+    }
+    if (exception instanceof WebApplicationException web) {
+      // A JAX-RS runtime's own HTTP failure (no such route, method not allowed, unacceptable
+      // media type, ...) keeps its status, as an RFC 9457 problem - never a 500.
+      Response.StatusType webStatus = web.getResponse().getStatusInfo();
+      return problem(webStatus.getStatusCode(), webStatus.getReasonPhrase(), exception.getMessage())
+          .build();
+    }
     int status;
     String title;
     if (exception instanceof PolicyNotFoundException) {
@@ -37,9 +63,6 @@ public class PolicyExceptionMapper implements ExceptionMapper<RuntimeException> 
     } else if (exception instanceof PolicyEvaluationUnavailableException) {
       status = 503;
       title = "Service Unavailable";
-    } else if (exception instanceof SecurityException) {
-      status = 401;
-      title = "Unauthorized";
     } else if (exception instanceof IllegalArgumentException) {
       status = 400;
       title = "Bad Request";
@@ -49,10 +72,13 @@ public class PolicyExceptionMapper implements ExceptionMapper<RuntimeException> 
       LOG.log(
           Level.ERROR, "Unhandled failure while serving a policy evaluation request", exception);
     }
-    Problem problem = new Problem("about:blank", title, status).detail(exception.getMessage());
+    return problem(status, title, exception.getMessage()).build();
+  }
+
+  private static Response.ResponseBuilder problem(int status, String title, String detail) {
+    Problem problem = new Problem("about:blank", title, status).detail(detail);
     return Response.status(status)
         .type(MediaType.valueOf("application/problem+json"))
-        .entity(problem)
-        .build();
+        .entity(problem);
   }
 }

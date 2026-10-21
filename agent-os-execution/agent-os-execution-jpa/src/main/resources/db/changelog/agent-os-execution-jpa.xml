@@ -112,6 +112,7 @@
         <addForeignKeyConstraint
             baseTableName="agent_execution"
             baseColumnNames="owner_id"
+            referencedTableSchemaName="identity"
             referencedTableName="actor"
             referencedColumnNames="id"
             constraintName="fk_agent_execution_owner"

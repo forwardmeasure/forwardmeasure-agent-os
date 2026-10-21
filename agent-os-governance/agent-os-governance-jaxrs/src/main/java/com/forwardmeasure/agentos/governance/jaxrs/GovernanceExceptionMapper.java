@@ -18,6 +18,10 @@ import com.forwardmeasure.agentos.governance.application.AgentNotFoundException;
 import com.forwardmeasure.agentos.governance.application.DuplicateAgentCoordinatesException;
 import com.forwardmeasure.agentos.governance.application.SelfApprovalNotAllowedException;
 import com.forwardmeasure.agentos.governance.application.StaleRevisionException;
+import com.forwardmeasure.authzen.AuthenticationRequiredException;
+import com.forwardmeasure.authzen.AuthorizationDeniedException;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
@@ -26,9 +30,12 @@ import java.lang.System.Logger.Level;
 
 // One shared mapper for every AgentGovernanceService failure mode, matching each real operation's
 // documented response-code table exactly (see agent-governance-management.openapi.yaml's paths).
-// SecurityException covers both of AgentActorResolver's fail-closed cases (no authenticated JWT,
-// and no provisioned Actor row for an otherwise-valid subject) - deliberately not distinguished
-// further, so a caller can't use the response to tell which case it hit.
+// AgentActorResolver's fail-closed cases: no resolvable caller (AuthenticationRequiredException,
+// 401) and an authenticated caller with no enabled actor in the tenant
+// (AuthorizationDeniedException,
+// 403 - unknown and disabled actors deliberately answer alike, so a caller can't tell which).
+// Not final: Micronaut hosts it through a @Singleton subclass compiled with
+// micronaut-jaxrs-processor (MicronautGovernanceExceptionMapper); Spring registers it explicitly.
 @Provider
 public class GovernanceExceptionMapper implements ExceptionMapper<RuntimeException> {
 
@@ -37,6 +44,26 @@ public class GovernanceExceptionMapper implements ExceptionMapper<RuntimeExcepti
 
   @Override
   public Response toResponse(RuntimeException exception) {
+    if (exception instanceof AuthenticationRequiredException) {
+      // No resolvable caller: a missing/invalid JWT or one without exactly one active
+      // Organization (KeycloakOrganizationClaims.extract). The same challenge the HTTP layer
+      // sends for a request with no token at all.
+      return problem(401, "Unauthorized", exception.getMessage())
+          .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
+          .build();
+    }
+    if (exception instanceof AuthorizationDeniedException) {
+      // An authenticated caller without tenant access here (no enabled actor) - the detail
+      // carries only the correlation id the reason was logged under.
+      return problem(403, "Forbidden", exception.getMessage()).build();
+    }
+    if (exception instanceof WebApplicationException web) {
+      // A JAX-RS runtime's own HTTP failure (no such route, method not allowed, unacceptable
+      // media type, ...) keeps its status, as an RFC 9457 problem - never a 500.
+      Response.StatusType webStatus = web.getResponse().getStatusInfo();
+      return problem(webStatus.getStatusCode(), webStatus.getReasonPhrase(), exception.getMessage())
+          .build();
+    }
     int status;
     String title;
     if (exception instanceof AgentNotFoundException
@@ -54,9 +81,6 @@ public class GovernanceExceptionMapper implements ExceptionMapper<RuntimeExcepti
     } else if (exception instanceof SelfApprovalNotAllowedException) {
       status = 403;
       title = "Forbidden";
-    } else if (exception instanceof SecurityException) {
-      status = 401;
-      title = "Unauthorized";
     } else if (exception instanceof IllegalArgumentException) {
       status = 400;
       title = "Bad Request";
@@ -65,10 +89,13 @@ public class GovernanceExceptionMapper implements ExceptionMapper<RuntimeExcepti
       title = "Internal Server Error";
       LOG.log(Level.ERROR, "Unhandled failure while serving a governance request", exception);
     }
-    Problem problem = new Problem("about:blank", title, status).detail(exception.getMessage());
+    return problem(status, title, exception.getMessage()).build();
+  }
+
+  private static Response.ResponseBuilder problem(int status, String title, String detail) {
+    Problem problem = new Problem("about:blank", title, status).detail(detail);
     return Response.status(status)
         .type(MediaType.valueOf("application/problem+json"))
-        .entity(problem)
-        .build();
+        .entity(problem);
   }
 }

@@ -95,6 +95,7 @@
         <addForeignKeyConstraint
             baseTableName="agent"
             baseColumnNames="owner_id"
+            referencedTableSchemaName="identity"
             referencedTableName="actor"
             referencedColumnNames="id"
             constraintName="fk_agent_owner"
@@ -103,6 +104,7 @@
         <addForeignKeyConstraint
             baseTableName="agent"
             baseColumnNames="reviewer_id"
+            referencedTableSchemaName="identity"
             referencedTableName="actor"
             referencedColumnNames="id"
             constraintName="fk_agent_reviewer"

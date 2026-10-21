@@ -17,6 +17,7 @@ import com.forwardmeasure.agentos.governance.application.AgentGovernanceService;
 import com.forwardmeasure.agentos.governance.jaxrs.AgentGovernanceResource;
 import com.forwardmeasure.agentos.governance.jaxrs.AgentReleasesResource;
 import com.forwardmeasure.agentos.governance.jaxrs.AgentsResource;
+import com.forwardmeasure.agentos.governance.jaxrs.GovernanceExceptionMapper;
 import com.forwardmeasure.agentos.governance.jpa.application.AgentGovernanceServiceImpl;
 import com.forwardmeasure.agentos.governance.jpa.repository.AgentAuditEventRepository;
 import com.forwardmeasure.agentos.governance.jpa.repository.AgentRepository;
@@ -28,6 +29,7 @@ import com.forwardmeasure.agentos.openworkflow.client.OpenWorkflowWorkflowReleas
 import com.forwardmeasure.authzen.client.OAuthClientCredentialsTokenSupplier;
 import com.forwardmeasure.jpa.core.repository.AbstractBaseRepository;
 import com.forwardmeasure.jpa.identity.service.ActorService;
+import com.forwardmeasure.platform.server.jaxrs.RequestProblemsFeature;
 import jakarta.persistence.EntityManager;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -36,9 +38,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.jersey.autoconfigure.ResourceConfigCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
 
 // Spring composition for the governance vertical, mirroring
 // OpenWorkflowDefinitionManagementSpringBinding's real shape: registers pre-built resource
@@ -121,19 +120,15 @@ public class AgentGovernanceSpringBinding {
   ResourceConfigCustomizer agentGovernanceResourceConfigCustomizer(
       AgentsResource agents, AgentGovernanceResource governance, AgentReleasesResource releases) {
     return resourceConfig ->
-        resourceConfig.register(agents).register(governance).register(releases);
-  }
-
-  // No SpringTenantScopeFilter here, unlike openworkflow-spring-binding's real security chain:
-  // AgentActorResolver.withActor already opens/closes TenantScope itself, as one atomic call -
-  // see that interface's own doc comment for why every framework binding matches this shape
-  // instead of a transparent filter.
-  @Bean
-  SecurityFilterChain agentGovernanceSecurity(HttpSecurity http) throws Exception {
-    return http.csrf(csrf -> csrf.disable())
-        .authorizeHttpRequests(requests -> requests.anyRequest().authenticated())
-        .oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()))
-        .build();
+        resourceConfig
+            .register(agents)
+            .register(governance)
+            .register(releases)
+            // Every failure as this service's own RFC 9457 problem (401/403 included), and the
+            // shared request-contract mappers Quarkus/Micronaut pick up on their own. Spring Boot's
+            // Jersey only sees providers registered explicitly.
+            .register(new GovernanceExceptionMapper())
+            .register(RequestProblemsFeature.class);
   }
 
   private static <R extends AbstractBaseRepository<?, ?>> R repository(

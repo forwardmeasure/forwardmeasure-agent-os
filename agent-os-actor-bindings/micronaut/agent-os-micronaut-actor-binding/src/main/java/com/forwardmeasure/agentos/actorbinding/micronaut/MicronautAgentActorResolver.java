@@ -15,6 +15,8 @@ import com.forwardmeasure.agentos.domain.ActorType;
 import com.forwardmeasure.agentos.domain.AgentActor;
 import com.forwardmeasure.agentos.domain.AgentActorResolver;
 import com.forwardmeasure.authzen.ActiveOrganization;
+import com.forwardmeasure.authzen.AuthenticationRequiredException;
+import com.forwardmeasure.authzen.AuthorizationDeniedException;
 import com.forwardmeasure.authzen.KeycloakOrganizationClaims;
 import com.forwardmeasure.jpa.identity.entity.Actor;
 import com.forwardmeasure.jpa.identity.service.ActorService;
@@ -23,7 +25,10 @@ import io.micronaut.context.annotation.Value;
 import io.micronaut.security.authentication.Authentication;
 import io.micronaut.security.utils.SecurityService;
 import jakarta.inject.Singleton;
+import java.lang.System.Logger;
+import java.lang.System.Logger.Level;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Function;
 
 // Resolves AgentActor as one atomic call - see AgentActorResolver's own doc comment for why this
@@ -41,6 +46,7 @@ import java.util.function.Function;
 public class MicronautAgentActorResolver implements AgentActorResolver {
 
   private static final String IDENTITY_PROVIDER = "keycloak";
+  private static final Logger LOG = System.getLogger(MicronautAgentActorResolver.class.getName());
 
   private final SecurityService security;
   private final ActorService actors;
@@ -66,7 +72,7 @@ public class MicronautAgentActorResolver implements AgentActorResolver {
             .getAuthentication()
             .orElseThrow(
                 () ->
-                    new SecurityException(
+                    new AuthenticationRequiredException(
                         "No authenticated JWT principal for the current request"));
     ActiveOrganization organization =
         KeycloakOrganizationClaims.extract(authentication.getAttributes(), clientId);
@@ -75,13 +81,25 @@ public class MicronautAgentActorResolver implements AgentActorResolver {
         () -> {
           Actor actor =
               actors
-                  .findByIdentity(IDENTITY_PROVIDER, organization.actorId())
-                  .orElseThrow(
-                      () ->
-                          new SecurityException(
-                              "No Actor is provisioned for subject " + organization.actorId()));
+                  .findEnabledByIdentity(IDENTITY_PROVIDER, organization.actorId())
+                  .orElseThrow(() -> noTenantAccess(organization));
           return work.apply(toAgentActor(actor, organization));
         });
+  }
+
+  // Unknown or disabled actor: the caller is authenticated (a verified token for a member of the
+  // tenant's Organization) but has no tenant access here - 403, never 401 and never a created
+  // actor. Actors are provisioned when tenant access is granted and disabled when it is removed.
+  // The response carries only a correlation id; the reason is logged under it.
+  private static AuthorizationDeniedException noTenantAccess(ActiveOrganization organization) {
+    String correlationId = UUID.randomUUID().toString();
+    LOG.log(
+        Level.WARNING,
+        "No enabled actor for subject {0} in tenant {1}; correlationId={2}",
+        organization.actorId(),
+        organization.tenantId().value(),
+        correlationId);
+    return new AuthorizationDeniedException(correlationId);
   }
 
   private static AgentActor toAgentActor(Actor actor, ActiveOrganization organization) {

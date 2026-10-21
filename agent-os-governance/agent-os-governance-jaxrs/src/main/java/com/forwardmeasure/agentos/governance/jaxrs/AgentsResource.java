@@ -18,6 +18,7 @@ import com.forwardmeasure.agentos.governance.api.model.AgentDraftCreate;
 import com.forwardmeasure.agentos.governance.api.model.AgentDraftUpdate;
 import com.forwardmeasure.agentos.governance.api.model.AgentPage;
 import com.forwardmeasure.agentos.governance.application.AgentGovernanceService;
+import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response;
 import java.net.URI;
 import java.util.Objects;
@@ -27,6 +28,12 @@ import java.util.UUID;
 // pom description. AgentActorResolver.withActor wraps every method body as one atomic call
 // (resolve caller, open tenant scope, run the operation, close tenant scope), never split across
 // a filter pair - see AgentActorResolver's own doc comment for why.
+// Class-level @Path repeated from AgentsApi: Jersey's ResourceConfig.register(Object) (Spring's
+// registration path) only treats an instance as a root resource when its own class carries @Path -
+// without it every route 404s on Spring. Mirrors forwardmeasure-openworkflow's resources.
+// "/", not the interface's "": Jersey and Quarkus treat them alike, but micronaut-jaxrs-processor
+// turns a blank class path into a literal "null" route prefix that no request matches.
+@Path("/")
 public class AgentsResource implements AgentsApi {
 
   private final AgentGovernanceService governance;

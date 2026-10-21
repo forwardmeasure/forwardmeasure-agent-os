@@ -28,8 +28,8 @@ import com.forwardmeasure.database.migration.api.MigrationPlan;
 import com.forwardmeasure.database.migration.api.MigrationRequest;
 import com.forwardmeasure.database.migration.liquibase.LiquibaseMigrationEngine;
 import com.forwardmeasure.jpa.identity.entity.Actor;
-import com.forwardmeasure.jpa.identity.entity.IdentityType;
 import com.forwardmeasure.jpa.identity.repository.ActorRepository;
+import com.forwardmeasure.jpa.liquibase.TenantIdentityMigrator;
 import com.forwardmeasure.jpa.tenancy.FunctionalSchema;
 import com.forwardmeasure.testcontainers.junit.postgresql.WithPostgreSqlContainer;
 import com.forwardmeasure.testcontainers.postgresql.PostgreSqlTestContainer;
@@ -47,6 +47,8 @@ import org.junit.jupiter.api.Test;
 
 @WithPostgreSqlContainer(databaseName = "agent_os_governance_contract")
 class AgentPostgreSqlIntegrationTest {
+
+  private static final String FIXTURE_IDENTITY_PROVIDER = "test";
 
   @Test
   void persistsAndQueriesTheFullGovernanceLifecycle(PostgreSqlTestContainer database) {
@@ -158,6 +160,9 @@ class AgentPostgreSqlIntegrationTest {
   // never opens a TenantScope, so the schema it targets should match what a real deployment
   // actually names it, not a fake tenant-shaped placeholder.
   private void prepare(PostgreSqlTestContainer database) {
+    // The tenant's shared identity schema first, as tenant provisioning does - the agent table's
+    // owner/reviewer foreign keys reference identity.actor.
+    new TenantIdentityMigrator(database.dataSource(), getClass().getClassLoader()).migrate();
     database.createSchema(FunctionalSchema.AGENT_OS.schemaName());
     new LiquibaseMigrationEngine(getClass().getClassLoader())
         .migrate(
@@ -202,15 +207,12 @@ class AgentPostgreSqlIntegrationTest {
     }
   }
 
-  private Actor actor(ActorRepository actors, String label) {
-    Actor actor =
-        Actor.builder()
-            .subjectIdentifier(label + "-" + UUID.randomUUID())
-            .identityProvider("test")
-            .type(IdentityType.HUMAN)
-            .build();
-    actors.persist(actor);
-    return actor;
+  // Actors are seeded by agent-os-governance-jpa-test.xml's own fixture changeset into the tenant
+  // database's identity schema - never created by the code under test.
+  private Actor actor(ActorRepository actors, String subject) {
+    return actors
+        .findByIdentity(FIXTURE_IDENTITY_PROVIDER, subject)
+        .orElseThrow(() -> new IllegalStateException("no seeded fixture actor " + subject));
   }
 
   private record Context(ActorRepository actors, AgentService agents) {}

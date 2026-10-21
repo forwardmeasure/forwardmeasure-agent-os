@@ -41,9 +41,9 @@ import com.forwardmeasure.database.migration.api.MigrationPlan;
 import com.forwardmeasure.database.migration.api.MigrationRequest;
 import com.forwardmeasure.database.migration.liquibase.LiquibaseMigrationEngine;
 import com.forwardmeasure.jpa.identity.entity.Actor;
-import com.forwardmeasure.jpa.identity.entity.IdentityType;
 import com.forwardmeasure.jpa.identity.repository.ActorRepository;
 import com.forwardmeasure.jpa.identity.service.impl.ActorServiceImpl;
+import com.forwardmeasure.jpa.liquibase.TenantIdentityMigrator;
 import com.forwardmeasure.jpa.tenancy.FunctionalSchema;
 import com.forwardmeasure.testcontainers.junit.postgresql.WithPostgreSqlContainer;
 import com.forwardmeasure.testcontainers.postgresql.PostgreSqlTestContainer;
@@ -205,15 +205,14 @@ class AgentGovernanceServiceImplPostgreSqlIntegrationTest {
     }
   }
 
-  private AgentActor actor(Context context, String label) {
+  // Actors are seeded by the test changelog's own fixture changeset into the tenant database's
+  // identity schema - never created by the code under test.
+  private AgentActor actor(Context context, String subject) {
     Actor entity =
-        Actor.builder()
-            .subjectIdentifier(label + "-" + UUID.randomUUID())
-            .identityProvider("test")
-            .type(IdentityType.HUMAN)
-            .build();
-    context.actorRepository().persist(entity);
-    context.actorRepository().flush();
+        context
+            .actorRepository()
+            .findByIdentity("test", subject)
+            .orElseThrow(() -> new IllegalStateException("no seeded fixture actor " + subject));
     return new AgentActor(
         new ActorReference(entity.getUuid(), entity.getSubjectIdentifier(), ActorType.HUMAN, null),
         UUID.randomUUID());
@@ -259,6 +258,9 @@ class AgentGovernanceServiceImplPostgreSqlIntegrationTest {
   // never opens a TenantScope (see the class-level comment for why), so the schema it targets
   // should match what a real deployment actually names it, not a fake tenant-shaped placeholder.
   private void prepare(PostgreSqlTestContainer database) {
+    // The tenant's shared identity schema first, as tenant provisioning does - every owner/reviewer
+    // foreign key references identity.actor.
+    new TenantIdentityMigrator(database.dataSource(), getClass().getClassLoader()).migrate();
     database.createSchema(FunctionalSchema.AGENT_OS.schemaName());
     new LiquibaseMigrationEngine(getClass().getClassLoader())
         .migrate(
