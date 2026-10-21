@@ -15,14 +15,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.forwardmeasure.agentos.domain.AgentActor;
+import com.forwardmeasure.authzen.AuthenticationRequiredException;
+import com.forwardmeasure.authzen.AuthorizationDeniedException;
 import com.forwardmeasure.database.migration.api.DatabaseTarget;
 import com.forwardmeasure.database.migration.api.MigrationPlan;
 import com.forwardmeasure.database.migration.api.MigrationRequest;
 import com.forwardmeasure.database.migration.liquibase.LiquibaseMigrationEngine;
-import com.forwardmeasure.jpa.identity.entity.Actor;
-import com.forwardmeasure.jpa.identity.entity.IdentityType;
-import com.forwardmeasure.jpa.identity.repository.ActorRepository;
 import com.forwardmeasure.jpa.identity.service.ActorService;
+import com.forwardmeasure.jpa.liquibase.TenantIdentityMigrator;
 import com.forwardmeasure.jpa.tenancy.FunctionalSchema;
 import com.forwardmeasure.jpa.tenancy.TenantDatabase;
 import com.forwardmeasure.jpa.tenancy.TenantId;
@@ -34,14 +34,12 @@ import io.micronaut.security.authentication.ServerAuthentication;
 import io.micronaut.security.utils.SecurityService;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import io.micronaut.test.support.TestPropertyProvider;
-import io.micronaut.transaction.TransactionOperations;
 import jakarta.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
-import org.hibernate.Session;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -65,6 +63,11 @@ class MicronautAgentActorResolverPostgreSqlIntegrationTest implements TestProper
   private static final TenantId TENANT_ID = TenantId.forDid(TENANT_DID);
   private static final FunctionalSchema SCHEMA = FunctionalSchema.AGENT_OS;
 
+  // Seeded by agent-os-micronaut-actor-binding-test.xml: one actor with tenant access, one whose
+  // access was removed.
+  private static final String ENABLED_SUBJECT = "agent-os-enabled-subject";
+  private static final String DISABLED_SUBJECT = "agent-os-disabled-subject";
+
   private static final PostgreSqlTestContainer DATABASE =
       new PostgreSqlTestContainer(
           new PostgreSqlContainerConfiguration(
@@ -81,10 +84,6 @@ class MicronautAgentActorResolverPostgreSqlIntegrationTest implements TestProper
 
   @Inject TenantScope tenantScope;
 
-  @Inject TransactionOperations<Session> transactions;
-
-  @Inject ActorRepository actorRepository;
-
   @Inject ActorService actorService;
 
   @Override
@@ -95,13 +94,17 @@ class MicronautAgentActorResolverPostgreSqlIntegrationTest implements TestProper
       var registry = new com.forwardmeasure.jpa.liquibase.TenantRegistry(DATABASE.dataSource());
       registry.migrate();
       registry.register(TENANT_DID, TENANT_DATABASE.alias(), TENANT_DATABASE);
+      // The tenant's shared identity schema (identity.actor) first, as tenant provisioning does,
+      // then this module's fixture changelog, which seeds the actors the tests authenticate as.
+      new TenantIdentityMigrator(DATABASE.dataSource(), getClass().getClassLoader()).migrate();
       new LiquibaseMigrationEngine(getClass().getClassLoader())
           .migrate(
               new MigrationRequest(
                   DATABASE.dataSource(),
                   DatabaseTarget.schema(SCHEMA.schemaName()),
                   MigrationPlan.liquibase(
-                      "forwardmeasure-jpa", "db/changelog/forwardmeasure-jpa.xml")));
+                      "agent-os-micronaut-actor-binding-test",
+                      "db/changelog/agent-os-micronaut-actor-binding-test.xml")));
       initialized = true;
     }
     return Map.ofEntries(
@@ -120,38 +123,39 @@ class MicronautAgentActorResolverPostgreSqlIntegrationTest implements TestProper
 
   @Test
   void resolvesTheAgentActorForAProvisionedSubject() {
-    String subject = "keycloak-subject-" + UUID.randomUUID();
-    provisionActor(subject);
-    TenantId tenantId = TENANT_ID;
-
     MicronautAgentActorResolver resolver =
-        resolver(fakeSecurity(authentication(tenantId, subject)));
+        resolver(fakeSecurity(authentication(TENANT_ID, ENABLED_SUBJECT)));
 
     AgentActor resolved = resolver.withActor(actor -> actor);
 
-    assertEquals(subject, resolved.actor().subject());
-    assertEquals(tenantId.value(), resolved.tenantId());
+    assertEquals(ENABLED_SUBJECT, resolved.actor().subject());
+    assertEquals(TENANT_ID.value(), resolved.tenantId());
   }
 
   @Test
-  void failsClosedWhenNoActorIsProvisionedForTheSubject() {
+  void deniesASubjectWithNoProvisionedActor() {
     MicronautAgentActorResolver resolver =
         resolver(fakeSecurity(authentication(TENANT_ID, "unknown-subject")));
-    assertThrows(SecurityException.class, () -> resolver.withActor(actor -> actor));
+    assertThrows(AuthorizationDeniedException.class, () -> resolver.withActor(actor -> actor));
   }
 
   @Test
-  void failsClosedWhenNoJwtIsAuthenticated() {
+  void deniesADisabledActor() {
+    MicronautAgentActorResolver resolver =
+        resolver(fakeSecurity(authentication(TENANT_ID, DISABLED_SUBJECT)));
+    assertThrows(AuthorizationDeniedException.class, () -> resolver.withActor(actor -> actor));
+  }
+
+  @Test
+  void requiresAuthenticationWhenNoJwtIsPresent() {
     MicronautAgentActorResolver resolver = resolver(fakeSecurity(null));
-    assertThrows(SecurityException.class, () -> resolver.withActor(actor -> actor));
+    assertThrows(AuthenticationRequiredException.class, () -> resolver.withActor(actor -> actor));
   }
 
   @Test
   void closesTheTenantScopeEvenWhenTheCallerThrows() {
-    String subject = "keycloak-subject-" + UUID.randomUUID();
-    provisionActor(subject);
     MicronautAgentActorResolver resolver =
-        resolver(fakeSecurity(authentication(TENANT_ID, subject)));
+        resolver(fakeSecurity(authentication(TENANT_ID, ENABLED_SUBJECT)));
 
     assertTrue(tenantScope.current().isEmpty());
     Function<AgentActor, Void> throwing =
@@ -164,21 +168,6 @@ class MicronautAgentActorResolverPostgreSqlIntegrationTest implements TestProper
 
   private MicronautAgentActorResolver resolver(SecurityService security) {
     return new MicronautAgentActorResolver(security, actorService, tenantScope, CLIENT_ID);
-  }
-
-  private void provisionActor(String subject) {
-    try (TenantScope.Scope ignored = tenantScope.open(TENANT_ID)) {
-      transactions.executeWrite(
-          status -> {
-            actorRepository.persist(
-                Actor.builder()
-                    .subjectIdentifier(subject)
-                    .identityProvider("keycloak")
-                    .type(IdentityType.HUMAN)
-                    .build());
-            return null;
-          });
-    }
   }
 
   // MicronautAgentActorResolver only calls security.getAuthentication() - a minimal fake

@@ -22,9 +22,9 @@
 
     <parent>
         <groupId>com.forwardmeasure.agentos</groupId>
-        <artifactId>agent-os-actor-bindings-quarkus</artifactId>
+        <artifactId>forwardmeasure-agent-os-quarkus-parent</artifactId>
         <version>${revision}</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath>../../../parents/quarkus/pom.xml</relativePath>
     </parent>
 
     <groupId>com.forwardmeasure.agentos</groupId>
@@ -34,24 +34,6 @@
     <name>ForwardMeasure Agent OS :: Actor Bindings :: Quarkus :: Binding</name>
     <description>Shared Quarkus claims-resolution/authentication and JPA-tenancy wiring, reused by every hosted vertical - not reimplemented per service.</description>
 
-    <dependencyManagement>
-        <dependencies>
-        <dependency>
-            <groupId>com.forwardmeasure.platform</groupId>
-            <artifactId>forwardmeasure-platform-quarkus-bom</artifactId>
-            <version>${forwardmeasure.platform.version}</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.forwardmeasure.openworkflow</groupId>
-            <artifactId>openworkflow-bom</artifactId>
-            <version>${forwardmeasure.openworkflow.version}</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -86,6 +68,14 @@
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-oidc</artifactId>
+        </dependency>
+        <dependency>
+            <!-- ProblemChallengeMechanism and the security problem mappers: every 401/403 Quarkus
+                 answers (no token on a path the HTTP permission policy protects, a token that fails
+                 validation) as the same RFC 9457 problem Spring and Micronaut return. Discovered
+                 from the jar's own Jandex index. -->
+            <groupId>com.forwardmeasure.platform</groupId>
+            <artifactId>forwardmeasure-platform-quarkus-security</artifactId>
         </dependency>
         <!-- Real @QuarkusTest boot for QuarkusAgentActorResolverPostgreSqlIntegrationTest - proves
              the resolver's TenantScope.call(...) actually routes through real Hibernate multi-

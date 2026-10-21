@@ -16,8 +16,10 @@ import com.forwardmeasure.agentos.governance.jaxrs.AgentGovernanceResource;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
+// Not final: micronaut-validation-processor makes each route inheriting a constraint an AOP
+// validation proxy, which cannot subclass a final class or override a final method.
 @Singleton
-public final class MicronautAgentGovernanceResource extends AgentGovernanceResource {
+public class MicronautAgentGovernanceResource extends AgentGovernanceResource {
 
   @Inject
   public MicronautAgentGovernanceResource(

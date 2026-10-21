@@ -17,10 +17,13 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: none
+  # The default datasource is the platform's control-plane database (tenant_registry), never a
+  # tenant's: each request's tenant database is resolved there, then reached through
+  # forwardmeasure.jpa.tenant-database below. Both as agent-os's runtime role.
   datasource:
-    url: ${AGENT_OS_DATABASE_URL:jdbc:postgresql://localhost:5432/agent_os}
-    username: ${AGENT_OS_DATABASE_USERNAME:agent_os}
-    password: ${AGENT_OS_DATABASE_PASSWORD:agent_os}
+    url: ${AGENT_OS_CONTROL_PLANE_DATABASE_URL:jdbc:postgresql://localhost:5432/forwardmeasure_control_plane}
+    username: ${AGENT_OS_RUNTIME_DATABASE_USERNAME:agent_os}
+    password: ${AGENT_OS_RUNTIME_DATABASE_PASSWORD:agent_os}
   security:
     oauth2:
       resourceserver:
@@ -41,10 +44,10 @@ forwardmeasure:
   jpa:
     functional-schema: agent_os
     tenant-database:
-      host: ${AGENT_OS_DATABASE_HOST:localhost}
-      port: ${AGENT_OS_DATABASE_PORT:5432}
-      username: ${AGENT_OS_DATABASE_USERNAME:agent_os}
-      password: ${AGENT_OS_DATABASE_PASSWORD:agent_os}
+      host: ${AGENT_OS_TENANT_DATABASE_HOST:localhost}
+      port: ${AGENT_OS_TENANT_DATABASE_PORT:5432}
+      username: ${AGENT_OS_RUNTIME_DATABASE_USERNAME:agent_os}
+      password: ${AGENT_OS_RUNTIME_DATABASE_PASSWORD:agent_os}
 agent-os:
   security:
     client-id: ${AGENT_OS_CLIENT_ID:agent-os}

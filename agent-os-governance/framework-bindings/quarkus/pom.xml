@@ -22,9 +22,9 @@
 
     <parent>
         <groupId>com.forwardmeasure.agentos</groupId>
-        <artifactId>agent-os-governance-framework-bindings</artifactId>
+        <artifactId>forwardmeasure-agent-os-quarkus-parent</artifactId>
         <version>${revision}</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath>../../../parents/quarkus/pom.xml</relativePath>
     </parent>
 
     <groupId>com.forwardmeasure.agentos</groupId>
@@ -34,17 +34,6 @@
     <name>ForwardMeasure Agent OS :: Governance :: Quarkus</name>
     <description>Quarkus persistence wiring and JAX-RS resource hosting for governance, using the shared agent-os-quarkus-actor-binding for auth/claims resolution. Wiring only - no Dockerfile, no application.yaml, no container-image profile; see agent-os-deployments/governance/quarkus (agent-os-governance-quarkus-service) for the deployable assembly that depends on this module, mirroring openworkflow-definition-management-quarkus/-quarkus-service's split exactly.</description>
 
-    <dependencyManagement>
-        <dependencies>
-        <dependency>
-            <groupId>com.forwardmeasure.platform</groupId>
-            <artifactId>forwardmeasure-platform-quarkus-bom</artifactId>
-            <version>${forwardmeasure.platform.version}</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <dependencies>
         <dependency>

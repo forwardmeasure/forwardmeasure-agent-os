@@ -17,10 +17,18 @@ import com.forwardmeasure.agentos.governance.api.model.AgentAuditEventPage;
 import com.forwardmeasure.agentos.governance.api.model.AgentLifecycleAction;
 import com.forwardmeasure.agentos.governance.api.model.AgentPublishRequest;
 import com.forwardmeasure.agentos.governance.application.AgentGovernanceService;
+import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response;
 import java.util.Objects;
 import java.util.UUID;
 
+// Class-level @Path repeated from AgentGovernanceApi: Jersey's ResourceConfig.register(Object)
+// (Spring's
+// registration path) only treats an instance as a root resource when its own class carries @Path -
+// without it every route 404s on Spring. Mirrors forwardmeasure-openworkflow's resources.
+// "/", not the interface's "": Jersey and Quarkus treat them alike, but micronaut-jaxrs-processor
+// turns a blank class path into a literal "null" route prefix that no request matches.
+@Path("/")
 public class AgentGovernanceResource implements AgentGovernanceApi {
 
   private final AgentGovernanceService governance;

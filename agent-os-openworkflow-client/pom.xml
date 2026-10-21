@@ -22,9 +22,9 @@
 
     <parent>
         <groupId>com.forwardmeasure.agentos</groupId>
-        <artifactId>forwardmeasure-agent-os-parent</artifactId>
+        <artifactId>forwardmeasure-agent-os-neutral-parent</artifactId>
         <version>${revision}</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath>../parents/neutral/pom.xml</relativePath>
     </parent>
 
     <groupId>com.forwardmeasure.agentos</groupId>
@@ -34,17 +34,6 @@
     <name>ForwardMeasure Agent OS :: OpenWorkflow Public API Adapter</name>
     <description>Wraps OpenWorkflow's generated public definition-management and execution-management clients behind Agent OS-owned ports.</description>
 
-    <dependencyManagement>
-        <dependencies>
-        <dependency>
-            <groupId>com.forwardmeasure.openworkflow</groupId>
-            <artifactId>openworkflow-bom</artifactId>
-            <version>${forwardmeasure.openworkflow.version}</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <dependencies>
         <dependency>

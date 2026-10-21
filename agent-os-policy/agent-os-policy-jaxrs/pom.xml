@@ -22,9 +22,9 @@
 
     <parent>
         <groupId>com.forwardmeasure.agentos</groupId>
-        <artifactId>agent-os-policy</artifactId>
+        <artifactId>forwardmeasure-agent-os-neutral-parent</artifactId>
         <version>${revision}</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath>../../parents/neutral/pom.xml</relativePath>
     </parent>
 
     <groupId>com.forwardmeasure.agentos</groupId>
@@ -35,6 +35,12 @@
     <description>Neutral JAX-RS resource class for policy evaluation, hosted identically by all three framework bindings. Thin by design - PolicyEvaluationRequest/Result are the real generated wire types, reused directly by the PolicyEvaluator port (agent-os-domain), so there is no domain object to map to or from.</description>
 
     <dependencies>
+        <dependency>
+            <!-- AuthenticationRequiredException/AuthorizationDeniedException, which this module's
+                 exception mapper answers as 401/403 problems. -->
+            <groupId>com.forwardmeasure.authzen</groupId>
+            <artifactId>forwardmeasure-authzen-api</artifactId>
+        </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>agent-os-domain</artifactId>

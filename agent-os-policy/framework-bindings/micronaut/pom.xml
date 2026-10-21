@@ -22,9 +22,9 @@
 
     <parent>
         <groupId>com.forwardmeasure.agentos</groupId>
-        <artifactId>agent-os-policy-framework-bindings</artifactId>
+        <artifactId>forwardmeasure-agent-os-micronaut-parent</artifactId>
         <version>${revision}</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath>../../../parents/micronaut/pom.xml</relativePath>
     </parent>
 
     <groupId>com.forwardmeasure.agentos</groupId>
@@ -34,17 +34,6 @@
     <name>ForwardMeasure Agent OS :: Policy :: Micronaut</name>
     <description>Micronaut wiring and JAX-RS resource hosting for policy evaluation, using the shared agent-os-micronaut-actor-binding for auth/claims resolution. No JDBC/JPA starters - this vertical has no persistence of its own, so no MicronautTransactionalServiceProxy is needed either. Wiring only - no Dockerfile, no application.yaml, no container-image profile; see agent-os-deployments/policy/micronaut (agent-os-policy-micronaut-service) for the deployable assembly that depends on this module, mirroring openworkflow-definition-management-micronaut/-micronaut-service's split exactly.</description>
 
-    <dependencyManagement>
-        <dependencies>
-        <dependency>
-            <groupId>com.forwardmeasure.platform</groupId>
-            <artifactId>forwardmeasure-platform-micronaut-bom</artifactId>
-            <version>${forwardmeasure.platform.version}</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -72,6 +61,13 @@
             <artifactId>micronaut-jaxrs-server</artifactId>
         </dependency>
         <dependency>
+            <!-- Serde runtime for the generated models (request bodies, responses and the RFC 9457
+                 Problem every mapped failure returns), whose @Serdeable introspection the models
+                 modules build from source. -->
+            <groupId>io.micronaut.serde</groupId>
+            <artifactId>micronaut-serde-jackson</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.micronaut</groupId>
             <artifactId>micronaut-inject-java</artifactId>
             <scope>provided</scope>
@@ -84,10 +80,28 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
+                    <!-- micronaut-jaxrs-processor turns the bare resource and exception-mapper
+                         subclasses' inherited JAX-RS annotations into real Micronaut routes and
+                         mapper beans - without it they compile and inject but serve nothing.
+                         micronaut-validation-processor makes every route whose inherited contract
+                         method carries a constraint (@Valid body, @NotNull/@Size header, ...) a
+                         validated route, as Hibernate Validator does on Quarkus and Spring;
+                         violations reach forwardmeasure-platform-micronaut-validation's
+                         MicronautConstraintViolationProblemHandler. The generated models' own
+                         serde/validation introspection is built in the models modules, from
+                         source. -->
                     <annotationProcessorPaths combine.children="append">
                         <path>
                             <groupId>io.micronaut</groupId>
                             <artifactId>micronaut-inject-java</artifactId>
+                        </path>
+                        <path>
+                            <groupId>io.micronaut.jaxrs</groupId>
+                            <artifactId>micronaut-jaxrs-processor</artifactId>
+                        </path>
+                        <path>
+                            <groupId>io.micronaut.validation</groupId>
+                            <artifactId>micronaut-validation-processor</artifactId>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>

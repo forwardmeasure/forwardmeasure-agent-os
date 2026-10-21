@@ -22,9 +22,9 @@
 
     <parent>
         <groupId>com.forwardmeasure.agentos</groupId>
-        <artifactId>agent-os-execution-framework-bindings</artifactId>
+        <artifactId>forwardmeasure-agent-os-spring-parent</artifactId>
         <version>${revision}</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath>../../../parents/spring/pom.xml</relativePath>
     </parent>
 
     <groupId>com.forwardmeasure.agentos</groupId>
@@ -34,17 +34,6 @@
     <name>ForwardMeasure Agent OS :: Execution :: Spring</name>
     <description>Spring persistence wiring and JAX-RS resource hosting for execution, using the shared agent-os-spring-actor-binding for auth/claims resolution. Wiring only - no Dockerfile, no application.yaml, no container-image profile; see agent-os-deployments/execution/spring (agent-os-execution-spring-service) for the deployable assembly that depends on this module, mirroring openworkflow-definition-management-spring/-spring-service's split exactly.</description>
 
-    <dependencyManagement>
-        <dependencies>
-        <dependency>
-            <groupId>com.forwardmeasure.platform</groupId>
-            <artifactId>forwardmeasure-platform-spring-bom</artifactId>
-            <version>${forwardmeasure.platform.version}</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -74,6 +63,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-jersey</artifactId>
+        </dependency>
+        <dependency>
+            <!-- RequestProblemsFeature: the shared RFC 9457 request-contract mappers, registered
+                 explicitly because Spring Boot's Jersey discovers no providers on its own. -->
+            <groupId>com.forwardmeasure.platform</groupId>
+            <artifactId>forwardmeasure-platform-server-jaxrs</artifactId>
         </dependency>
     </dependencies>
 </project>

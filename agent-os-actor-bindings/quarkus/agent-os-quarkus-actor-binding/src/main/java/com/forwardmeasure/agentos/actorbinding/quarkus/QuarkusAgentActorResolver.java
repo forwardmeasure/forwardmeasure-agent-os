@@ -17,6 +17,8 @@ import com.forwardmeasure.agentos.domain.ActorType;
 import com.forwardmeasure.agentos.domain.AgentActor;
 import com.forwardmeasure.agentos.domain.AgentActorResolver;
 import com.forwardmeasure.authzen.ActiveOrganization;
+import com.forwardmeasure.authzen.AuthenticationRequiredException;
+import com.forwardmeasure.authzen.AuthorizationDeniedException;
 import com.forwardmeasure.authzen.KeycloakOrganizationClaims;
 import com.forwardmeasure.jpa.identity.entity.Actor;
 import com.forwardmeasure.jpa.identity.service.ActorService;
@@ -24,9 +26,12 @@ import com.forwardmeasure.jpa.tenancy.TenantScope;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import java.io.IOException;
+import java.lang.System.Logger;
+import java.lang.System.Logger.Level;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Function;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.jwt.JsonWebToken;
@@ -47,6 +52,7 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 public class QuarkusAgentActorResolver implements AgentActorResolver {
 
   private static final String IDENTITY_PROVIDER = "keycloak";
+  private static final Logger LOG = System.getLogger(QuarkusAgentActorResolver.class.getName());
 
   private final JsonWebToken token;
   private final ObjectMapper json;
@@ -77,11 +83,8 @@ public class QuarkusAgentActorResolver implements AgentActorResolver {
         () -> {
           Actor actor =
               actors
-                  .findByIdentity(IDENTITY_PROVIDER, organization.actorId())
-                  .orElseThrow(
-                      () ->
-                          new SecurityException(
-                              "No Actor is provisioned for subject " + organization.actorId()));
+                  .findEnabledByIdentity(IDENTITY_PROVIDER, organization.actorId())
+                  .orElseThrow(() -> noTenantAccess(organization));
           return work.apply(toAgentActor(actor, organization));
         });
   }
@@ -89,18 +92,36 @@ public class QuarkusAgentActorResolver implements AgentActorResolver {
   private Map<String, Object> rawClaims() {
     String raw = token.getRawToken();
     if (raw == null) {
-      throw new SecurityException("No authenticated JWT principal for the current request");
+      throw new AuthenticationRequiredException(
+          "No authenticated JWT principal for the current request");
     }
     String[] segments = raw.split("\\.");
     if (segments.length != 3) {
-      throw new SecurityException("Verified JWT has an invalid compact representation");
+      throw new AuthenticationRequiredException(
+          "Verified JWT has an invalid compact representation");
     }
     try {
       byte[] payload = Base64.getUrlDecoder().decode(segments[1]);
       return json.readValue(payload, new TypeReference<Map<String, Object>>() {});
     } catch (IllegalArgumentException | IOException exception) {
-      throw new SecurityException("Verified JWT claims could not be decoded", exception);
+      throw new AuthenticationRequiredException(
+          "Verified JWT claims could not be decoded", exception);
     }
+  }
+
+  // Unknown or disabled actor: the caller is authenticated (a verified token for a member of the
+  // tenant's Organization) but has no tenant access here - 403, never 401 and never a created
+  // actor. Actors are provisioned when tenant access is granted and disabled when it is removed.
+  // The response carries only a correlation id; the reason is logged under it.
+  private static AuthorizationDeniedException noTenantAccess(ActiveOrganization organization) {
+    String correlationId = UUID.randomUUID().toString();
+    LOG.log(
+        Level.WARNING,
+        "No enabled actor for subject {0} in tenant {1}; correlationId={2}",
+        organization.actorId(),
+        organization.tenantId().value(),
+        correlationId);
+    return new AuthorizationDeniedException(correlationId);
   }
 
   private static AgentActor toAgentActor(Actor actor, ActiveOrganization organization) {

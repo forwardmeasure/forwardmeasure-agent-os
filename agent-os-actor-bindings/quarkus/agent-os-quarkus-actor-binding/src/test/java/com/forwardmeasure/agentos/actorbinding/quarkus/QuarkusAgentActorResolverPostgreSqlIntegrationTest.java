@@ -16,16 +16,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.forwardmeasure.agentos.domain.AgentActor;
-import com.forwardmeasure.jpa.identity.entity.Actor;
-import com.forwardmeasure.jpa.identity.entity.IdentityType;
-import com.forwardmeasure.jpa.identity.repository.ActorRepository;
+import com.forwardmeasure.authzen.AuthenticationRequiredException;
+import com.forwardmeasure.authzen.AuthorizationDeniedException;
 import com.forwardmeasure.jpa.identity.service.ActorService;
 import com.forwardmeasure.jpa.tenancy.TenantId;
 import com.forwardmeasure.jpa.tenancy.TenantScope;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
-import jakarta.transaction.UserTransaction;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Set;
@@ -48,47 +46,52 @@ class QuarkusAgentActorResolverPostgreSqlIntegrationTest {
 
   @Inject TenantScope tenantScope;
 
-  @Inject UserTransaction transaction;
-
-  @Inject ActorRepository actorRepository;
-
   @Inject ActorService actorService;
 
   @Test
-  void resolvesTheAgentActorForAProvisionedSubject() throws Exception {
-    String subject = "keycloak-subject-" + UUID.randomUUID();
-    provisionActor(subject);
+  void resolvesTheAgentActorForAProvisionedSubject() {
     TenantId tenantId = AgentOsQuarkusPostgreSqlResource.TENANT_ID;
-
-    QuarkusAgentActorResolver resolver = resolver(rawToken(tenantId, subject));
+    QuarkusAgentActorResolver resolver =
+        resolver(rawToken(tenantId, AgentOsQuarkusPostgreSqlResource.ENABLED_SUBJECT));
 
     AgentActor resolved = resolver.withActor(actor -> actor);
 
-    assertEquals(subject, resolved.actor().subject());
+    assertEquals(AgentOsQuarkusPostgreSqlResource.ENABLED_SUBJECT, resolved.actor().subject());
     assertEquals(tenantId.value(), resolved.tenantId());
   }
 
   @Test
-  void failsClosedWhenNoActorIsProvisionedForTheSubject() {
+  void deniesASubjectWithNoProvisionedActor() {
     QuarkusAgentActorResolver resolver =
         resolver(rawToken(AgentOsQuarkusPostgreSqlResource.TENANT_ID, "unknown-subject"));
-    assertThrows(SecurityException.class, () -> resolver.withActor(actor -> actor));
+    assertThrows(AuthorizationDeniedException.class, () -> resolver.withActor(actor -> actor));
   }
 
   @Test
-  void failsClosedWhenNoJwtIsAuthenticated() {
+  void deniesADisabledActor() {
+    QuarkusAgentActorResolver resolver =
+        resolver(
+            rawToken(
+                AgentOsQuarkusPostgreSqlResource.TENANT_ID,
+                AgentOsQuarkusPostgreSqlResource.DISABLED_SUBJECT));
+    assertThrows(AuthorizationDeniedException.class, () -> resolver.withActor(actor -> actor));
+  }
+
+  @Test
+  void requiresAuthenticationWhenNoJwtIsPresent() {
     // A null raw token is exactly what JsonWebToken.getRawToken() returns for an unauthenticated
     // request in a real Quarkus app.
     QuarkusAgentActorResolver resolver = resolver(null);
-    assertThrows(SecurityException.class, () -> resolver.withActor(actor -> actor));
+    assertThrows(AuthenticationRequiredException.class, () -> resolver.withActor(actor -> actor));
   }
 
   @Test
-  void closesTheTenantScopeEvenWhenTheCallerThrows() throws Exception {
-    String subject = "keycloak-subject-" + UUID.randomUUID();
-    provisionActor(subject);
+  void closesTheTenantScopeEvenWhenTheCallerThrows() {
     QuarkusAgentActorResolver resolver =
-        resolver(rawToken(AgentOsQuarkusPostgreSqlResource.TENANT_ID, subject));
+        resolver(
+            rawToken(
+                AgentOsQuarkusPostgreSqlResource.TENANT_ID,
+                AgentOsQuarkusPostgreSqlResource.ENABLED_SUBJECT));
 
     assertTrue(tenantScope.current().isEmpty());
     Function<AgentActor, Void> throwing =
@@ -102,22 +105,6 @@ class QuarkusAgentActorResolverPostgreSqlIntegrationTest {
   private QuarkusAgentActorResolver resolver(String rawToken) {
     return new QuarkusAgentActorResolver(
         fakeToken(rawToken), JSON, actorService, tenantScope, CLIENT_ID);
-  }
-
-  private void provisionActor(String subject) throws Exception {
-    transaction.begin();
-    try (var ignored = tenantScope.open(AgentOsQuarkusPostgreSqlResource.TENANT_ID)) {
-      actorRepository.persist(
-          Actor.builder()
-              .subjectIdentifier(subject)
-              .identityProvider("keycloak")
-              .type(IdentityType.HUMAN)
-              .build());
-      transaction.commit();
-    } catch (Exception | Error failure) {
-      transaction.rollback();
-      throw failure;
-    }
   }
 
   // QuarkusAgentActorResolver only calls getRawToken() - it deliberately never touches

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements. See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License. You may obtain a copy of the License at
+
+      https://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<!-- Test fixture for AgentOsServiceFixture: the actors the deployment HTTP tests authenticate as,
+     seeded into the tenant database's shared identity schema the way tenant-access provisioning
+     provisions them - after the migration Job has created that schema. The subjects are the
+     Keycloak-assigned user ids of the fixture's identities, known only once Keycloak is running,
+     so they arrive as changelog parameters. -->
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    logicalFilePath="db/changelog/agent-os-service-test-fixtures.xml"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="agent-os-service-test-fixtures-001-actors" author="forwardmeasure">
+        <insert schemaName="identity" tableName="actor">
+            <column name="identity_provider" value="keycloak" />
+            <column name="subject_identifier" value="${agentos.fixture.enabled-subject}" />
+            <column name="identity_type" value="HUMAN" />
+        </insert>
+        <insert schemaName="identity" tableName="actor">
+            <column name="identity_provider" value="keycloak" />
+            <column name="subject_identifier" value="${agentos.fixture.disabled-subject}" />
+            <column name="identity_type" value="SERVICE" />
+            <column name="disabled_at" valueComputed="CURRENT_TIMESTAMP" />
+        </insert>
+    </changeSet>
+</databaseChangeLog>

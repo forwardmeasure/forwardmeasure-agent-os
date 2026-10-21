@@ -51,6 +51,7 @@ final class AgentWireMapper {
             Date.from(domain.updatedAt()));
     wire.description(content.getDescription());
     wire.a2uiPresentation(content.getA2uiPresentation());
+    wire.prompts(content.getPrompts());
     if (domain.reviewer() != null) {
       wire.reviewer(toWireActor(domain.reviewer()));
     }
@@ -70,8 +71,10 @@ final class AgentWireMapper {
     return wire;
   }
 
-  // Only ever called for a PUBLISHED AgentDefinition (listAgentReleases/getAgentRelease's port
-  // methods never return anything else), so workflowBinding/agentDefinitionSha256 - both required
+  // Only ever called for a PUBLISHED AgentDefinition
+  // (listAgentReleases/getAgentRelease's port
+  // methods never return anything else), so workflowBinding/agentDefinitionSha256
+  // - both required
   // here - are guaranteed non-null by AgentDefinition.publish's own invariants.
   static com.forwardmeasure.agentos.governance.api.model.AgentRelease toReleaseWire(
       AgentDefinition domain) {
@@ -135,6 +138,7 @@ final class AgentWireMapper {
             create.getPublicUri());
     content.description(create.getDescription());
     content.a2uiPresentation(create.getA2uiPresentation());
+    content.prompts(create.getPrompts());
     return content;
   }
 
@@ -149,6 +153,7 @@ final class AgentWireMapper {
             update.getPublicUri());
     content.description(update.getDescription());
     content.a2uiPresentation(update.getA2uiPresentation());
+    content.prompts(update.getPrompts());
     return content;
   }
 }

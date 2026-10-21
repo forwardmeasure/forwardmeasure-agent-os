@@ -36,9 +36,9 @@ public final class AgentOsMigrationsMain {
     // Administrator credential - this process's own connection to the platform's own small
     // control-plane database. Used only to create each tenant's own database (idempotent) and
     // create/rotate agent-os's own runtime role; never the role application services connect as.
-    String url = required("AGENT_OS_DATABASE_URL");
-    String username = required("AGENT_OS_DATABASE_USERNAME");
-    String password = required("AGENT_OS_DATABASE_PASSWORD");
+    String url = required("AGENT_OS_CONTROL_PLANE_DATABASE_URL");
+    String username = required("AGENT_OS_ADMIN_DATABASE_USERNAME");
+    String password = required("AGENT_OS_ADMIN_DATABASE_PASSWORD");
     // Runtime credential - never connected as here, only created/rotated and granted scoped,
     // per-tenant-database privileges - agent-os's own runtime role.
     String runtimeUsername = required("AGENT_OS_RUNTIME_DATABASE_USERNAME");
@@ -51,6 +51,9 @@ public final class AgentOsMigrationsMain {
     AgentOsTenantMigrator migrator =
         new AgentOsTenantMigrator(platformDataSource, tenantDataSources, runtimeUsername);
     migrator.ensureRuntimeRole(runtimePassword);
+    // The services resolve each request's tenant database from the control-plane database's
+    // tenant_registry (their default datasource) as this runtime role.
+    migrator.grantTenantRegistryRead();
     // Same alias-derivation as fowf's own OpenWorkflowMigrationsMain and fei's own
     // EntityIntelligenceMigrationsMain - TenantDatabase is always derived from the tenant's alias,
     // never supplied directly.
@@ -68,14 +71,15 @@ public final class AgentOsMigrationsMain {
   }
 
   /**
-   * Derives the tenant-database-per-tenant JDBC URL prefix from {@code AGENT_OS_DATABASE_URL} (a
-   * complete URL to the platform database) by stripping its trailing database-name segment.
+   * Derives the tenant-database-per-tenant JDBC URL prefix from {@code
+   * AGENT_OS_CONTROL_PLANE_DATABASE_URL} (a complete URL to the platform's control-plane database)
+   * by stripping its trailing database-name segment.
    */
   static String databaseUrlPrefix(String url) {
     int lastSlash = url.lastIndexOf('/');
     if (lastSlash < 0) {
       throw new IllegalArgumentException(
-          "AGENT_OS_DATABASE_URL must include a database name: " + url);
+          "AGENT_OS_CONTROL_PLANE_DATABASE_URL must include a database name: " + url);
     }
     return url.substring(0, lastSlash + 1);
   }

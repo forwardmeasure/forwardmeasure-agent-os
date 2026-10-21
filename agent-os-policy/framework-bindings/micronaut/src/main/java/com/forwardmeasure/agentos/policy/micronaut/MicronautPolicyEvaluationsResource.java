@@ -19,8 +19,10 @@ import jakarta.inject.Singleton;
 // Micronaut compile-time discovery edge for the framework-neutral resource - see
 // agent-os-execution-micronaut's own MicronautAgentExecutionsResource for why this thin subclass
 // is needed.
+// Not final: micronaut-validation-processor makes each route inheriting a constraint an AOP
+// validation proxy, which cannot subclass a final class or override a final method.
 @Singleton
-public final class MicronautPolicyEvaluationsResource extends PolicyEvaluationsResource {
+public class MicronautPolicyEvaluationsResource extends PolicyEvaluationsResource {
 
   @Inject
   public MicronautPolicyEvaluationsResource(

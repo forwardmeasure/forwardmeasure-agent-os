@@ -21,5 +21,21 @@
     logicalFilePath="db/changelog/agent-os-spring-actor-binding-test.xml"
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
-    <include file="db/changelog/forwardmeasure-jpa.xml" />
+    <!-- Test fixture: the actors the resolver tests authenticate as, seeded into the tenant
+         database's shared identity schema (migrated by TenantIdentityMigrator first), the way
+         tenant-access provisioning provisions them - one with tenant access, one whose access was
+         removed (disabled, never deleted). -->
+    <changeSet id="agent-os-spring-actor-binding-test-fixture-001-actors" author="forwardmeasure">
+        <insert schemaName="identity" tableName="actor">
+            <column name="identity_provider" value="keycloak" />
+            <column name="subject_identifier" value="agent-os-enabled-subject" />
+            <column name="identity_type" value="HUMAN" />
+        </insert>
+        <insert schemaName="identity" tableName="actor">
+            <column name="identity_provider" value="keycloak" />
+            <column name="subject_identifier" value="agent-os-disabled-subject" />
+            <column name="identity_type" value="HUMAN" />
+            <column name="disabled_at" valueComputed="CURRENT_TIMESTAMP" />
+        </insert>
+    </changeSet>
 </databaseChangeLog>

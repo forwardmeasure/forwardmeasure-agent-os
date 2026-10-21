@@ -22,6 +22,7 @@ import com.forwardmeasure.agentos.governance.api.model.AgentA2uiComponent;
 import com.forwardmeasure.agentos.governance.api.model.AgentA2uiFieldPresentation;
 import com.forwardmeasure.agentos.governance.api.model.AgentA2uiPresentation;
 import com.forwardmeasure.agentos.governance.api.model.AgentDefinitionContent;
+import com.forwardmeasure.agentos.governance.api.model.AgentPromptProfile;
 import com.forwardmeasure.agentos.governance.api.model.AgentProtocols;
 import com.forwardmeasure.agentos.governance.api.model.AgentSkill;
 import com.networknt.schema.Error;
@@ -45,12 +46,18 @@ class AgentDefinitionContentSchemaParityTest {
 
   private static final String RESOURCE_PATH = "META-INF/schema/agent-definition.schema.json";
 
-  // The generated model has no @JsonInclude(NON_NULL) of its own (openapi-generator's jaxrs-spec
-  // templates don't emit one) - a plain ObjectMapper serializes an unset optional field as a
-  // literal JSON null. "nullable: true" is an OpenAPI/3.0-era extension, not a standard JSON
-  // Schema keyword, so a standards-compliant draft-2020-12 validator ignores it and a literal
-  // null fails {"type":"string"}. Whatever serializes this model for real (WP3+) must configure
-  // NON_NULL inclusion; this test's mapper does the same, and is the regression guard proving
+  // The generated model has no @JsonInclude(NON_NULL) of its own
+  // (openapi-generator's jaxrs-spec
+  // templates don't emit one) - a plain ObjectMapper serializes an unset optional
+  // field as a
+  // literal JSON null. "nullable: true" is an OpenAPI/3.0-era extension, not a
+  // standard JSON
+  // Schema keyword, so a standards-compliant draft-2020-12 validator ignores it
+  // and a literal
+  // null fails {"type":"string"}. Whatever serializes this model for real (WP3+)
+  // must configure
+  // NON_NULL inclusion; this test's mapper does the same, and is the regression
+  // guard proving
   // that configuration is what parity actually depends on.
   private static ObjectMapper mapper() {
     ObjectMapper mapper = new ObjectMapper();
@@ -151,10 +158,44 @@ class AgentDefinitionContentSchemaParityTest {
   }
 
   @Test
+  void aContentWithGovernedPromptsValidates() throws Exception {
+    Schema schema = loadSchema();
+    AgentDefinitionContent withPrompts =
+        validContent()
+            .prompts(
+                List.of(
+                    new AgentPromptProfile(
+                            "general-entity",
+                            "claude-opus-5-5",
+                            "You are a document evidence extraction engine.")
+                        .description("Default extraction profile")));
+    JsonNode serialized = mapper().valueToTree(withPrompts);
+    List<Error> errors = schema.validate(serialized);
+    assertTrue(errors.isEmpty(), () -> "expected no violations, got: " + errors);
+  }
+
+  @Test
+  void aPromptProfileMissingItsRequiredModelFailsValidation() throws Exception {
+    Schema schema = loadSchema();
+    ObjectNode serialized =
+        (ObjectNode)
+            mapper()
+                .valueToTree(
+                    validContent()
+                        .prompts(List.of(new AgentPromptProfile("general-entity", "m", "s"))));
+    ((ObjectNode) serialized.get("prompts").get(0)).remove("model");
+
+    List<Error> errors = schema.validate(serialized);
+    assertFalse(errors.isEmpty(), "expected the missing prompt model to be flagged");
+  }
+
+  @Test
   void withoutNonNullInclusionUnsetOptionalFieldsSerializeAsLiteralNullAndFailValidation()
       throws Exception {
-    // The negative case proving the ObjectMapper configuration above is load-bearing, not
-    // incidental - a default-configured mapper genuinely breaks parity for this generated model.
+    // The negative case proving the ObjectMapper configuration above is
+    // load-bearing, not
+    // incidental - a default-configured mapper genuinely breaks parity for this
+    // generated model.
     AgentDefinitionContent minimal =
         new AgentDefinitionContent(
             "Minimal Agent",

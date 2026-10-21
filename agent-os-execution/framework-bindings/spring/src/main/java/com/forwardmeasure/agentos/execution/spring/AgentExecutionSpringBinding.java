@@ -16,6 +16,7 @@ import com.forwardmeasure.agentos.domain.WorkflowExecutionDispatcher;
 import com.forwardmeasure.agentos.domain.WorkflowReleaseResolver;
 import com.forwardmeasure.agentos.execution.application.AgentExecutionService;
 import com.forwardmeasure.agentos.execution.jaxrs.AgentExecutionsResource;
+import com.forwardmeasure.agentos.execution.jaxrs.ExecutionExceptionMapper;
 import com.forwardmeasure.agentos.execution.jpa.application.AgentExecutionServiceImpl;
 import com.forwardmeasure.agentos.execution.jpa.repository.AgentExecutionRepository;
 import com.forwardmeasure.agentos.execution.jpa.service.AgentExecutionRecordService;
@@ -33,6 +34,7 @@ import com.forwardmeasure.agentos.openworkflow.client.OpenWorkflowWorkflowReleas
 import com.forwardmeasure.authzen.client.OAuthClientCredentialsTokenSupplier;
 import com.forwardmeasure.jpa.core.repository.AbstractBaseRepository;
 import com.forwardmeasure.jpa.identity.service.ActorService;
+import com.forwardmeasure.platform.server.jaxrs.RequestProblemsFeature;
 import jakarta.persistence.EntityManager;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -41,9 +43,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.jersey.autoconfigure.ResourceConfigCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
 
 // Spring composition for the execution vertical - see agent-os-execution-quarkus's own
 // AgentExecutionQuarkusBinding doc comment for why this reproduces governance's own persistence
@@ -132,15 +131,14 @@ public class AgentExecutionSpringBinding {
   @Bean
   ResourceConfigCustomizer agentExecutionResourceConfigCustomizer(
       AgentExecutionsResource executions) {
-    return resourceConfig -> resourceConfig.register(executions);
-  }
-
-  @Bean
-  SecurityFilterChain agentExecutionSecurity(HttpSecurity http) throws Exception {
-    return http.csrf(csrf -> csrf.disable())
-        .authorizeHttpRequests(requests -> requests.anyRequest().authenticated())
-        .oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()))
-        .build();
+    return resourceConfig ->
+        resourceConfig
+            .register(executions)
+            // Every failure as this service's own RFC 9457 problem (401/403 included), and the
+            // shared request-contract mappers Quarkus/Micronaut pick up on their own. Spring Boot's
+            // Jersey only sees providers registered explicitly.
+            .register(new ExecutionExceptionMapper())
+            .register(RequestProblemsFeature.class);
   }
 
   private static OAuthClientCredentialsTokenSupplier tokenSupplier(

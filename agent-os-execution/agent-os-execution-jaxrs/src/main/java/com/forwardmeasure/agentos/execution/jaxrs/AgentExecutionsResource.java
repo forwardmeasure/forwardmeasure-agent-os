@@ -20,6 +20,7 @@ import com.forwardmeasure.agentos.execution.api.model.AgentExecutionStart;
 import com.forwardmeasure.agentos.execution.api.model.AgentExecutionState;
 import com.forwardmeasure.agentos.execution.api.model.AgentInvocationProtocol;
 import com.forwardmeasure.agentos.execution.application.AgentExecutionService;
+import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response;
 import java.time.Instant;
 import java.util.List;
@@ -28,6 +29,11 @@ import java.util.UUID;
 
 // Hosted identically by every agent-os-execution-{fw} module - see agent-os-governance-jaxrs's
 // own AgentsResource for the shared shape (one agentActors.withActor(...) call per method body).
+// Class-level @Path repeated from AgentExecutionsApi: Jersey's ResourceConfig.register(Object)
+// (Spring's
+// registration path) only treats an instance as a root resource when its own class carries @Path -
+// without it every route 404s on Spring. Mirrors forwardmeasure-openworkflow's resources.
+@Path("/v1/agent-executions")
 public class AgentExecutionsResource implements AgentExecutionsApi {
 
   private final AgentExecutionService execution;

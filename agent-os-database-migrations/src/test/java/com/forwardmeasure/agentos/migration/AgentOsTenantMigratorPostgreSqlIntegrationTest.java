@@ -40,7 +40,7 @@ class AgentOsTenantMigratorPostgreSqlIntegrationTest {
   // Deliberately never provisioned - see the isolation assertion below for what this proves.
   private static final TenantDatabase TENANT_C = TenantDatabase.forAlias("tenant-c");
   private static final List<String> EXPECTED_TABLES =
-      List.of("actor", "agent", "agent_audit_event", "agent_execution");
+      List.of("agent", "agent_audit_event", "agent_execution");
   private static final String RUNTIME_USERNAME = "agent_os_runtime";
   private static final String RUNTIME_PASSWORD = "runtime-secret";
 
@@ -54,6 +54,7 @@ class AgentOsTenantMigratorPostgreSqlIntegrationTest {
     AgentOsTenantMigrator migrator =
         new AgentOsTenantMigrator(database.dataSource(), tenantDataSources, RUNTIME_USERNAME);
     migrator.ensureRuntimeRole(RUNTIME_PASSWORD);
+    migrator.grantTenantRegistryRead();
 
     migrator.provisionAndMigrate(TENANT_A);
     migrator.provisionAndMigrate(TENANT_B);
@@ -63,8 +64,15 @@ class AgentOsTenantMigratorPostgreSqlIntegrationTest {
 
     assertEquals(EXPECTED_TABLES, applicationTables(urlPrefix, database, TENANT_A));
     assertEquals(EXPECTED_TABLES, applicationTables(urlPrefix, database, TENANT_B));
-    assertEquals(8, changeSetCount(urlPrefix, database, TENANT_A));
-    assertEquals(8, changeSetCount(urlPrefix, database, TENANT_B));
+    // agent-os's own changelog only: three creates (agent, agent_audit_event, agent_execution).
+    // The actor table is not agent-os's - it is the tenant's shared identity schema's, recorded in
+    // that schema's own changelog table.
+    assertEquals(3, changeSetCount(urlPrefix, database, TENANT_A, "agent_os"));
+    assertEquals(3, changeSetCount(urlPrefix, database, TENANT_B, "agent_os"));
+    assertEquals(1, changeSetCount(urlPrefix, database, TENANT_A, "identity"));
+    assertEquals(1, changeSetCount(urlPrefix, database, TENANT_B, "identity"));
+    assertEquals(
+        List.of("owner_id", "reviewer_id"), actorForeignKeyColumns(urlPrefix, database, TENANT_A));
 
     // The real point of this test: connect as the actually-provisioned runtime role (not the
     // admin credential the migrator itself connects as) directly to each tenant's own physical
@@ -73,15 +81,33 @@ class AgentOsTenantMigratorPostgreSqlIntegrationTest {
     // Isolation is now database-level, not schema-level: TENANT_C's database was never created,
     // so connecting to it fails outright at the connection level, for any role including the
     // runtime role - a stronger, simpler proof than the old schema-permission-denied case.
-    try (Connection tenantA = runtimeConnection(urlPrefix, TENANT_A);
-        var statement = tenantA.createStatement()) {
-      // Selects (and finds zero rows in) a real table the migration created - proves USAGE on
-      // the schema and SELECT on the table, not just that the connection itself succeeded.
-      statement.executeQuery("select id from agent_os.actor");
+    for (TenantDatabase tenant : List.of(TENANT_A, TENANT_B)) {
+      try (Connection connection = runtimeConnection(urlPrefix, tenant);
+          var statement = connection.createStatement()) {
+        // Selects (and finds zero rows in) real tables the migration created - proves USAGE on
+        // each schema and SELECT on each table, not just that the connection itself succeeded:
+        // agent-os's own table, and the tenant's shared actor table the runtime role resolves
+        // every request's caller from.
+        statement.executeQuery("select id from agent_os.agent");
+        statement.executeQuery("select id from identity.actor");
+        // Read-only on actors: actors are provisioned when tenant access is granted, never by a
+        // product's runtime role.
+        SQLException insertDenied =
+            assertThrows(
+                SQLException.class,
+                () ->
+                    statement.executeUpdate(
+                        "insert into identity.actor (identity_provider, subject_identifier,"
+                            + " identity_type) values ('keycloak', 'runtime-attempt', 'HUMAN')"));
+        assertEquals("42501", insertDenied.getSQLState());
+      }
     }
-    try (Connection tenantB = runtimeConnection(urlPrefix, TENANT_B);
-        var statement = tenantB.createStatement()) {
-      statement.executeQuery("select id from agent_os.actor");
+    // The services' default datasource is the control-plane database, read as the runtime role.
+    try (Connection controlPlane =
+            DriverManager.getConnection(
+                database.hostJdbcUrl(), RUNTIME_USERNAME, RUNTIME_PASSWORD);
+        var statement = controlPlane.createStatement()) {
+      statement.executeQuery("select * from tenant_registry");
     }
 
     SQLException deniedForUnprovisionedTenant =
@@ -119,16 +145,48 @@ class AgentOsTenantMigratorPostgreSqlIntegrationTest {
   }
 
   private static int changeSetCount(
+      String urlPrefix,
+      PostgreSqlTestContainer database,
+      TenantDatabase tenantDatabase,
+      String schema)
+      throws Exception {
+    try (Connection connection =
+            DriverManager.getConnection(
+                urlPrefix + tenantDatabase.value(), database.username(), database.password());
+        var statement =
+            connection.prepareStatement("select count(*) from " + schema + ".databasechangelog");
+        var result = statement.executeQuery()) {
+      result.next();
+      return result.getInt(1);
+    }
+  }
+
+  // The agent table's foreign keys that reference identity.actor - proves the cross-schema
+  // references point at the tenant's one shared actor table.
+  private static List<String> actorForeignKeyColumns(
       String urlPrefix, PostgreSqlTestContainer database, TenantDatabase tenantDatabase)
       throws Exception {
     try (Connection connection =
             DriverManager.getConnection(
                 urlPrefix + tenantDatabase.value(), database.username(), database.password());
         var statement =
-            connection.prepareStatement("select count(*) from agent_os.databasechangelog");
+            connection.prepareStatement(
+                "select kcu.column_name from information_schema.table_constraints tc"
+                    + " join information_schema.key_column_usage kcu"
+                    + " on kcu.constraint_name = tc.constraint_name"
+                    + " and kcu.constraint_schema = tc.constraint_schema"
+                    + " join information_schema.constraint_column_usage ccu"
+                    + " on ccu.constraint_name = tc.constraint_name"
+                    + " and ccu.constraint_schema = tc.constraint_schema"
+                    + " where tc.constraint_type = 'FOREIGN KEY' and tc.table_schema = 'agent_os'"
+                    + " and tc.table_name = 'agent' and ccu.table_schema = 'identity'"
+                    + " and ccu.table_name = 'actor' order by kcu.column_name");
         var result = statement.executeQuery()) {
-      result.next();
-      return result.getInt(1);
+      List<String> columns = new ArrayList<>();
+      while (result.next()) {
+        columns.add(result.getString(1));
+      }
+      return List.copyOf(columns);
     }
   }
 

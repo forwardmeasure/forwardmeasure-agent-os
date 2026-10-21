@@ -16,8 +16,8 @@
   limitations under the License.
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
@@ -34,31 +34,9 @@
     <name>ForwardMeasure Agent OS :: Deployable Assemblies</name>
     <description>Every runnable, Docker-image-producing module in this repository, one directory per vertical then framework - flat module list, no nested per-vertical aggregator, mirroring forwardmeasure-openworkflow's own openworkflow-deployments exactly. Each leaf module here owns ONLY deployment-shaping concerns (Dockerfile, application.yaml, the framework's build/packaging plugin, the container-image profile) and depends on the corresponding vertical's own framework-bindings/{framework} wiring module (agent-os-{vertical}-{framework}) plus the shared cross-vertical agent-os-actor-bindings module - it owns no business wiring of its own. A deploy engineer or CI script can find every Dockerfile-producing module in this one tree without knowing which vertical owns it.</description>
 
-    <dependencyManagement>
-        <dependencies>
-        <dependency>
-            <groupId>com.forwardmeasure.platform</groupId>
-            <artifactId>forwardmeasure-platform-quarkus-bom</artifactId>
-            <version>${forwardmeasure.platform.version}</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.forwardmeasure.platform</groupId>
-            <artifactId>forwardmeasure-platform-spring-bom</artifactId>
-            <version>${forwardmeasure.platform.version}</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.forwardmeasure.platform</groupId>
-            <artifactId>forwardmeasure-platform-micronaut-bom</artifactId>
-            <version>${forwardmeasure.platform.version}</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-        </dependencies>
-    </dependencyManagement>
+    <!-- No framework BOM here: each leaf imports only its own framework's platform BOM
+         (forwardmeasure-platform-{quarkus,spring,micronaut}-bom). Importing all three here leaked
+         one framework's pins into the others' leaves (e.g. Quarkus's Netty 4.1 into Spring leaves). -->
 
     <modules>
         <module>policy/quarkus</module>

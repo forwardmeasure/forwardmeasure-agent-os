@@ -22,9 +22,13 @@
 
     <parent>
         <groupId>com.forwardmeasure.agentos</groupId>
-        <artifactId>agent-os-governance-management-service</artifactId>
+        <!-- The Micronaut parent, as forwardmeasure-entity-intelligence-common-models: Micronaut's
+             serde and validation processors run here, so their versions come from the Micronaut
+             BOM. The jar stays framework-neutral at runtime - see the provided-scope Micronaut
+             dependencies below. -->
+        <artifactId>forwardmeasure-agent-os-micronaut-parent</artifactId>
         <version>${revision}</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath>../../../../parents/micronaut/pom.xml</relativePath>
     </parent>
 
     <groupId>com.forwardmeasure.agentos</groupId>
@@ -47,7 +51,6 @@
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>agent-os-api-specifications</artifactId>
-            <version>${project.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -66,10 +69,53 @@
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
         </dependency>
+        <!--
+        provided: @Serdeable (configOptions additionalModelTypeAnnotations/
+        additionalEnumTypeAnnotations below) only has to compile here. Micronaut deployments carry
+        these jars anyway; on Quarkus and Spring the annotation and the generated introspection
+        classes are never loaded. Mirrors forwardmeasure-entity-intelligence-common-models.
+        -->
+        <dependency>
+            <groupId>io.micronaut.serde</groupId>
+            <artifactId>micronaut-serde-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.micronaut</groupId>
+            <artifactId>micronaut-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!--
+                    Micronaut's serde and validation introspection for every generated model is
+                    built here, from source, in the same compilation as the models - not in a
+                    Micronaut binding from this jar, where Micronaut loses type-argument annotations
+                    (List<@Valid X>, Map<String, @Valid X>) and silently skips nested validation
+                    that Hibernate Validator performs on Quarkus and Spring.
+                    -->
+                    <annotationProcessorPaths combine.children="append">
+                        <path>
+                            <groupId>io.micronaut</groupId>
+                            <artifactId>micronaut-inject-java</artifactId>
+                        </path>
+                        <path>
+                            <groupId>io.micronaut.serde</groupId>
+                            <artifactId>micronaut-serde-processor</artifactId>
+                        </path>
+                        <path>
+                            <groupId>io.micronaut.validation</groupId>
+                            <artifactId>micronaut-validation-processor</artifactId>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
@@ -125,6 +171,10 @@
                                 <openApiNullable>false</openApiNullable>
                                 <sourceFolder>src/main/java</sourceFolder>
                                 <useBeanValidation>true</useBeanValidation>
+                                <!-- Every model and enum @Serdeable, so the processors above build
+                                     its Micronaut introspection from source. -->
+                                <additionalModelTypeAnnotations>@io.micronaut.serde.annotation.Serdeable</additionalModelTypeAnnotations>
+                                <additionalEnumTypeAnnotations>@io.micronaut.serde.annotation.Serdeable</additionalEnumTypeAnnotations>
                             </configOptions>
                         </configuration>
                     </execution>

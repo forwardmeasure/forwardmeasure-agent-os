@@ -15,12 +15,29 @@ quarkus:
     name: agent-os-governance-quarkus
   http:
     host: 0.0.0.0
+    auth:
+      # Authenticated by default, mirroring Spring's AgentOsSpringSecurityConfiguration and
+      # Micronaut's intercept-url-map: HTTP-layer policies, checked before routing, so an unknown
+      # path with no token is a 401 too. Health (/q/*) stays open - kubelet's probes send no token;
+      # Quarkus resolves overlapping permission paths by specificity, so /q/* wins over /* there.
+      # forwardmeasure-platform-quarkus-security's ProblemChallengeMechanism writes every 401 as
+      # the RFC 9457 problem Spring and Micronaut return.
+      permission:
+        health:
+          paths: /q/*
+          policy: permit
+        authenticated:
+          paths: /*
+          policy: authenticated
   datasource:
     db-kind: postgresql
+    # The default datasource is the platform's control-plane database (tenant_registry), never a
+    # tenant's: each request's tenant database is resolved there, then reached through
+    # forwardmeasure.jpa.tenant-database below. Both as agent-os's runtime role.
     jdbc:
-      url: ${AGENT_OS_DATABASE_URL:jdbc:postgresql://localhost:5432/agent_os}
-    username: ${AGENT_OS_DATABASE_USERNAME:agent_os}
-    password: ${AGENT_OS_DATABASE_PASSWORD:agent_os}
+      url: ${AGENT_OS_CONTROL_PLANE_DATABASE_URL:jdbc:postgresql://localhost:5432/forwardmeasure_control_plane}
+    username: ${AGENT_OS_RUNTIME_DATABASE_USERNAME:agent_os}
+    password: ${AGENT_OS_RUNTIME_DATABASE_PASSWORD:agent_os}
   oidc:
     auth-server-url: ${AGENT_OS_KEYCLOAK_ISSUER:http://localhost:8080/realms/agent-os}
     application-type: service
@@ -43,10 +60,10 @@ forwardmeasure:
   jpa:
     functional-schema: agent_os
     tenant-database:
-      host: ${AGENT_OS_DATABASE_HOST:localhost}
-      port: ${AGENT_OS_DATABASE_PORT:5432}
-      username: ${AGENT_OS_DATABASE_USERNAME:agent_os}
-      password: ${AGENT_OS_DATABASE_PASSWORD:agent_os}
+      host: ${AGENT_OS_TENANT_DATABASE_HOST:localhost}
+      port: ${AGENT_OS_TENANT_DATABASE_PORT:5432}
+      username: ${AGENT_OS_RUNTIME_DATABASE_USERNAME:agent_os}
+      password: ${AGENT_OS_RUNTIME_DATABASE_PASSWORD:agent_os}
 agent-os:
   security:
     client-id: ${AGENT_OS_CLIENT_ID:agent-os}
