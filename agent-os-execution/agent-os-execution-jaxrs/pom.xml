@@ -61,5 +61,11 @@
             <groupId>jakarta.ws.rs</groupId>
             <artifactId>jakarta.ws.rs-api</artifactId>
         </dependency>
+        <dependency>
+            <!-- CommaSeparatedQueryParameterFilter: AgentExecutionCommaSeparatedQueryParameterFilter
+                 splits listAgentExecutions's comma-separated state list. -->
+            <groupId>com.forwardmeasure.platform</groupId>
+            <artifactId>forwardmeasure-platform-server-jaxrs</artifactId>
+        </dependency>
     </dependencies>
 </project>

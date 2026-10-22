@@ -15,6 +15,7 @@ import com.forwardmeasure.agentos.domain.AgentActorResolver;
 import com.forwardmeasure.agentos.domain.WorkflowExecutionDispatcher;
 import com.forwardmeasure.agentos.domain.WorkflowReleaseResolver;
 import com.forwardmeasure.agentos.execution.application.AgentExecutionService;
+import com.forwardmeasure.agentos.execution.jaxrs.AgentExecutionCommaSeparatedQueryParameterFilter;
 import com.forwardmeasure.agentos.execution.jaxrs.AgentExecutionsResource;
 import com.forwardmeasure.agentos.execution.jaxrs.ExecutionExceptionMapper;
 import com.forwardmeasure.agentos.execution.jpa.application.AgentExecutionServiceImpl;
@@ -138,6 +139,7 @@ public class AgentExecutionSpringBinding {
             // shared request-contract mappers Quarkus/Micronaut pick up on their own. Spring Boot's
             // Jersey only sees providers registered explicitly.
             .register(new ExecutionExceptionMapper())
+            .register(AgentExecutionCommaSeparatedQueryParameterFilter.class)
             .register(RequestProblemsFeature.class);
   }
 

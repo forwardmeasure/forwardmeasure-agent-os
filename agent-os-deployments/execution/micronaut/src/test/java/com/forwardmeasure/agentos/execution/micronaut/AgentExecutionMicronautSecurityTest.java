@@ -119,6 +119,18 @@ class AgentExecutionMicronautSecurityTest implements TestPropertyProvider {
     contract().assertCallerAdmitted(PROBE, ADMITTED);
   }
 
+  /**
+   * {@code state} is a comma-separated list ({@code style: form, explode: false}). Quarkus and
+   * Jersey split only the repeated form, so without
+   * AgentExecutionCommaSeparatedQueryParameterFilter they converted {@code running,paused} as one
+   * state and answered 404.
+   */
+  @Test
+  void admitsACommaSeparatedStateList() {
+    contract()
+        .assertCallerAdmitted(Probe.get("/v1/agent-executions?state=running,paused"), ADMITTED);
+  }
+
   private AgentOsSecurityContract contract() {
     return new AgentOsSecurityContract(server.getURI().resolve("/"), fixture);
   }
